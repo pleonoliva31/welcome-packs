@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Registro Welcome Packs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body class="bg-gray-50">
+    <div id="root"></div>
+    <script type="text/babel">
+      const { useState } = React;
+
+      // --- RUT helpers ---
+      const norm = s => (s||"").toUpperCase().replace(/[.-]/g,"").trim();
+      const dvRut = n => { let s=0,m=2; for(let i=n.length-1;i>=0;i--){ s+=parseInt(n[i],10)*m; m=m===7?2:m+1;} const r=11-(s%11); return r===11?"0":r===10?"K":String(r); };
+      const rutValido = r => { const raw=norm(r); if(!/^\d{6,9}[0-9K]$/.test(raw)) return false; return dvRut(raw.slice(0,-1))===raw.slice(-1); };
+
+      function App(){
+        const [rut, setRut] = useState("");
+        const [estado, setEstado] = useState(null); // NO_BASE | PENDIENTE | YA_ENTREGADO
+        const [grupo, setGrupo] = useState(null);
+        const [receptorRut, setReceptorRut] = useState("");
+        const [receptorNombre, setReceptorNombre] = useState("");
+        const [busy, setBusy] = useState(false);
+        const [msg, setMsg] = useState("");
+
+        async function buscar(){
+          setMsg(""); setBusy(true);
+          try{
+            const q = norm(rut);
+            const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(q)}`, {cache:"no-store"});
+            const data = await res.json();
+            setEstado(data.status); setGrupo(data.grupo || null);
+          }catch(e){ setMsg("Error consultando el servidor."); }
+          finally{ setBusy(false); }
+        }
+
+        async function entregarTodo(){
+          if(!grupo) return;
+          if(!rutValido(receptorRut)) { setMsg("RUT del receptor no es válido"); return; }
+          if(!receptorNombre.trim()) { setMsg("Ingresa el nombre del receptor"); return; }
+          setMsg(""); setBusy(true);
+          try{
+            const res = await fetch("/.netlify/functions/entregar", {
+              method: "POST",
+              headers: {"Content-Type":"application/json"},
+              body: JSON.stringify({
+                rut_busqueda: norm(rut),
+                receptor_rut: norm(receptorRut),
+                receptor_nombre: receptorNombre.trim()
+              })
+            });
+            const data = await res.json();
+            if (data.ok) {
+              setEstado("YA_ENTREGADO");
+              setMsg("Entrega registrada correctamente.");
+            } else {
+              setMsg(data.error || "No se pudo registrar la entrega.");
+            }
+          }catch(e){ setMsg("Error registrando la entrega."); }
+          finally{ setBusy(false); }
+        }
+
+        return (
+          <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
+            <div className="max-w-3xl mx-auto space-y-6">
+              <header className="flex items-center justify-between">
+                <h1 className="text-xl font-semibold">Registro de Welcome Packs</h1>
+                <button className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm"
+                  onClick={()=>{ setRut(""); setEstado(null); setGrupo(null); setReceptorRut(""); setReceptorNombre(""); setMsg(""); }}>
+                  Reiniciar
+                </button>
+              </header>
+
+              <section className="bg-white rounded-2xl shadow p-4 space-y-3">
+                <h2 className="font-medium">Buscar por RUT</h2>
+                <div className="flex gap-2">
+                  <input className="flex-1 px-3 py-2 rounded-xl border"
+                    placeholder="Ej: 12.345.678-K o 12345678K"
+                    value={rut} onChange={e=>setRut(e.target.value)}
+                    autoCapitalize="characters" autoCorrect="off" />
+                  <button onClick={buscar} disabled={busy} className="px-4 py-2 rounded-xl bg-black text-white">
+                    {busy ? "Buscando…" : "Buscar"}
+                  </button>
+                </div>
+                {msg && <p className="text-sm text-rose-700">{msg}</p>}
+
+                {estado === "NO_BASE" && (
+                  <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200">
+                    <p className="font-medium text-red-700">NO CORRESPONDE WELCOME PACK</p>
+                    <p className="text-sm text-gray-600 mt-1">Revisa el RUT o comunica incidencia.</p>
+                  </div>
+                )}
+
+                {grupo && (
+                  <div className="mt-3 p-3 rounded-2xl border bg-gray-50">
+                    <div className="text-sm text-gray-600">
+                      Compra de <b>{grupo.comprador?.nombre_comprador}</b> — {grupo.comprador?.tribuna} / {grupo.comprador?.sector}
+                    </div>
+                    <div className="text-sm">Asociados: <b>{grupo.miembros?.length||0}</b> | Categorías: <b>{(grupo.resumen||[]).join(" | ")}</b></div>
+
+                    {estado === "YA_ENTREGADO" && (
+                      <div className="mt-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+                        Welcome packs ya fueron entregados para este grupo.
+                      </div>
+                    )}
+
+                    {estado === "PENDIENTE" && (
+                      <div className="mt-3 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-sm text-gray-600">RUT del receptor</label>
+                            <input className="w-full px-3 py-2 rounded-xl border"
+                              value={receptorRut} onChange={e=>setReceptorRut(e.target.value)} placeholder="Ej: 12.345.678-K" />
+                          </div>
+                          <div>
+                            <label className="text-sm text-gray-600">Nombre del receptor</label>
+                            <input className="w-full px-3 py-2 rounded-xl border"
+                              value={receptorNombre} onChange={e=>setReceptorNombre(e.target.value)} placeholder="Nombre y apellido" />
+                          </div>
+                        </div>
+                        <button onClick={entregarTodo} disabled={busy} className="px-4 py-2 rounded-xl bg-blue-600 text-white w-full">
+                          {busy ? "Registrando…" : "Entregar TODO"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              <p className="text-xs text-gray-500">La base final se define con la variable de entorno <code>BASE_CSV_URL</code>.</p>
+            </div>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
