@@ -1,0 +1,9 @@
+{
+  "name": "welcome-packs",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@netlify/blobs": "^6.4.0"
+  }
+}
