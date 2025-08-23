@@ -19,7 +19,7 @@
     @media (max-width:640px){ .controls .shrink-item{ width:100%; } }
 
     /* Barra de tabs abajo (estilo app) */
-    body { padding-bottom: 72px; } /* alto aprox de la barra */
+    body { padding-bottom: 72px; } /* Alto de la barra inferior */
     .bottom-tabs {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
       backdrop-filter: saturate(120%) blur(6px);
@@ -41,7 +41,6 @@
       <a href="/" class="text-sm underline">← Ir a vista de voluntarios</a>
     </header>
 
-    <!-- PANELS -->
     <!-- 1) MÉTRICAS -->
     <section id="tab-metrics" role="tabpanel" class="bg-white rounded-2xl shadow p-4 space-y-4">
       <div id="metrics-summary" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
@@ -118,12 +117,12 @@
       </div>
     </section>
 
-    <!-- 3) LOG DE ENTREGAS -->
+    <!-- 3) ENTREGAS (AGRUPADAS POR COMPRADOR) -->
     <section id="tab-log" role="tabpanel" class="hidden bg-white rounded-2xl shadow p-4 space-y-3">
       <div class="flex items-start justify-between gap-2 flex-wrap">
         <h2 class="text-lg font-medium">Entregas registradas (log)</h2>
         <div class="controls w-full sm:w-auto">
-          <input id="log-search" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Buscar por RUT o nombre receptor...">
+          <input id="log-search" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Buscar por RUT/NOMBRE receptor o comprador…">
           <button id="log-refresh" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Actualizar</button>
         </div>
       </div>
@@ -131,16 +130,12 @@
         <table class="min-w-full text-sm">
           <thead class="text-left bg-gray-100">
             <tr>
-              <th class="px-2 py-1 border-b">Rut</th>
-              <th class="px-2 py-1 border-b">Nombre</th>
-              <th class="px-2 py-1 border-b">Categoría</th>
-              <th class="px-2 py-1 border-b">Rut comprador</th>
-              <th class="px-2 py-1 border-b">Nombre comprador</th>
-              <th class="px-2 py-1 border-b">Tribuna</th>
-              <th class="px-2 py-1 border-b">Sector</th>
-              <th class="px-2 py-1 border-b">Rut receptor</th>
               <th class="px-2 py-1 border-b">Nombre receptor</th>
-              <th class="px-2 py-1 border-b">Fecha entrega</th>
+              <th class="px-2 py-1 border-b">Rut receptor</th>
+              <th class="px-2 py-1 border-b">Nombre comprador</th>
+              <th class="px-2 py-1 border-b">Rut comprador</th>
+              <th class="px-2 py-1 border-b">Total packs</th>
+              <th class="px-2 py-1 border-b">Detalle por categoría</th>
             </tr>
           </thead>
           <tbody id="log-body"></tbody>
@@ -303,8 +298,9 @@
         `Mostrando ${pageRows.length} de ${rows.length} registros · Página ${repPage}`;
     }
 
-    // ---------- Log (entregas) ----------
+    // ---------- Log (entregas agrupadas por comprador) ----------
     let LOG_CACHE = []; let logPage = 1; const logSize = 50;
+
     async function initLog(){
       if(LOG_CACHE.length===0) await loadLog();
       renderLog();
@@ -313,7 +309,7 @@
       document.getElementById('log-prev').onclick = ()=> { if(logPage>1){ logPage--; renderLog(); } };
       document.getElementById('log-next').onclick = ()=> {
         const q = document.getElementById('log-search').value;
-        const rows = filtrarTexto(LOG_CACHE, q, ['rut','nombre','categoria','rut_comprador','nombre_comprador','tribuna','sector','rut_receptor','receptor_nombre']);
+        const rows = filtrarTexto(LOG_CACHE, q, ['nombre_receptor','rut_receptor','nombre_comprador','rut_comprador','detalle_texto']);
         if(logPage*logSize < rows.length){ logPage++; renderLog(); }
       };
     }
@@ -323,29 +319,28 @@
     }
     function renderLog(reset){
       const q = document.getElementById('log-search').value;
-      const rows = filtrarTexto(LOG_CACHE, q, ['rut','nombre','categoria','rut_comprador','nombre_comprador','tribuna','sector','rut_receptor','receptor_nombre']);
+      const rows = filtrarTexto(LOG_CACHE, q, ['nombre_receptor','rut_receptor','nombre_comprador','rut_comprador','detalle_texto']);
       if(reset) logPage = 1;
       const pageRows = paginar(rows, logPage, logSize);
-      document.getElementById('log-body').innerHTML = pageRows.map(r=>`
-        <tr>
-          <td class="px-2 py-1 border-b">${r.rut||''}</td>
-          <td class="px-2 py-1 border-b">${r.nombre||''}</td>
-          <td class="px-2 py-1 border-b">${r.categoria||''}</td>
-          <td class="px-2 py-1 border-b">${r.rut_comprador||''}</td>
-          <td class="px-2 py-1 border-b">${r.nombre_comprador||''}</td>
-          <td class="px-2 py-1 border-b">${r.tribuna||''}</td>
-          <td class="px-2 py-1 border-b">${r.sector||''}</td>
-          <td class="px-2 py-1 border-b">${r.rut_receptor||''}</td>
-          <td class="px-2 py-1 border-b">${r.receptor_nombre||''}</td>
-          <td class="px-2 py-1 border-b">${r.retirado_at||''}</td>
-        </tr>`).join('');
+      document.getElementById('log-body').innerHTML = pageRows.map(r=>{
+        const detalle = r.detalle_texto || (r.detalle||[]).map(d=>`${d.cantidad} ${d.cat}`).join(' · ');
+        return `
+          <tr>
+            <td class="px-2 py-1 border-b">${r.nombre_receptor||''}</td>
+            <td class="px-2 py-1 border-b">${r.rut_receptor||''}</td>
+            <td class="px-2 py-1 border-b">${r.nombre_comprador||''}</td>
+            <td class="px-2 py-1 border-b">${r.rut_comprador||''}</td>
+            <td class="px-2 py-1 border-b">${r.total_packs||0}</td>
+            <td class="px-2 py-1 border-b">${detalle}</td>
+          </tr>
+        `;
+      }).join('');
       document.getElementById('log-count').textContent =
         `Mostrando ${pageRows.length} de ${rows.length} entregas · Página ${logPage}`;
     }
 
     // ---------- Registrar entrega (admin) ----------
     let ADM_STATE = { rutBuscado: '', grupo: null };
-    function normRutLocal(s){ return (s||'').toUpperCase().replace(/[.\-]/g,'').trim(); }
 
     function renderAdminResultado(payload){
       const cont = document.getElementById('adm-resultado');
