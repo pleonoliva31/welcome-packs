@@ -1,16 +1,8 @@
-// netlify/functions/buscar.js
-// Busca un RUT en la base y devuelve estado + rut_buscado + nombre_buscado
-
 import { getStore } from '@netlify/blobs';
+const store = getStore({ name:'welcome-packs', siteID:process.env.BLOBS_SITE_ID||process.env.SITE_ID, token:process.env.BLOBS_TOKEN });
 
-const store = getStore({
-  name: 'welcome-packs',
-  siteID: process.env.BLOBS_SITE_ID || process.env.SITE_ID,
-  token: process.env.BLOBS_TOKEN
-});
-
+const sinAcentos = s => (s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'');
 const norm = s => (s || '').toUpperCase().replace(/[.\-]/g, '').trim();
-const sinAcentos = s => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '');
 const normKey = k => sinAcentos(String(k || '')).toLowerCase().replace(/\uFEFF/g, '').replace(/[\s_]/g, '');
 
 const ALIAS = {
@@ -22,17 +14,10 @@ const ALIAS = {
   tribuna: ['tribuna','Tribuna','Localidad'],
   sector: ['sector','Sector','Sección']
 };
-
-function parseCSV(text) {
-  const clean = text.replace(/^\uFEFF/, '').replace(/\r/g, '');
-  const lines = clean.split('\n').filter(Boolean);
-  if (!lines.length) return { headers: [], rows: [] };
-  const delim = lines[0].includes(';') ? ';' : ',';
-  const headers = lines[0].split(delim).map(h => h.trim());
-  const rows = lines.slice(1).map(line => {
-    const cells = line.split(delim);
-    const o = {}; headers.forEach((h,i)=> o[h]=cells[i]?.trim() ?? ''); return o;
-  });
+function parseCSV(text){ const clean=text.replace(/^\uFEFF/,'').replace(/\r/g,''); const lines=clean.split('\n').filter(Boolean);
+  if(!lines.length) return { headers:[], rows:[] };
+  const delim=lines[0].includes(';')?';':','; const headers=lines[0].split(delim).map(h=>h.trim());
+  const rows=lines.slice(1).map(line=>{ const cells=line.split(delim); const o={}; headers.forEach((h,i)=> o[h]=cells[i]?.trim() ?? ''); return o; });
   return { headers, rows };
 }
 const buildIndex = row => { const idx={}; Object.keys(row).forEach(k=> idx[normKey(k)]=k); return idx; };
@@ -51,19 +36,15 @@ function mapBaseRow(r){
     sector: pick(r, idx, ALIAS.sector)
   };
 }
-
 async function readBase(){
-  const url=process.env.BASE_CSV_URL;
-  if(!url) throw new Error('Falta BASE_CSV_URL');
-  const txt=await (await fetch(url)).text();
-  const {rows}=parseCSV(txt);
+  const url=process.env.BASE_CSV_URL; if(!url) throw new Error('Falta BASE_CSV_URL');
+  const txt=await (await fetch(url)).text(); const {rows}=parseCSV(txt);
   return rows.map(mapBaseRow).filter(r=>r.rut || r.rut_comprador);
 }
 async function readLog(){
-  const txt=(await store.get('registro_entregas.csv'))||'';
-  if(!txt.trim()) return [];
+  const txt=(await store.get('registro_entregas.csv'))||''; if(!txt.trim()) return [];
   const {rows}=parseCSV(txt);
-  return rows.map(r=>({ rut:norm(r.rut), rut_comprador:norm(r.rut_comprador), retirado:(r.retirado||'').toUpperCase() }));
+  return rows.map(r=>({ rut:norm(r.rut), rut_comprador:norm(r.rut_comprador), retirado:(r.retirado||r.retirado_at?'Y':'N') }));
 }
 
 export async function handler(event){
@@ -78,7 +59,7 @@ export async function handler(event){
 
     const miembros=base.filter(r=> r.rut_comprador===hit.rut_comprador);
 
-    // nuevo: calcular nombre de la persona buscada (si el rut pertenece a un miembro)
+    // nombre de la persona buscada si el rut pertenece a un miembro
     const buscado = miembros.find(m => m.rut === rut);
     const nombreBuscado = buscado?.nombre || '';
 
