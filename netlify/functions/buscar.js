@@ -1,9 +1,17 @@
 // netlify/functions/buscar.js
+// Busca un RUT en la base final (CSV) y devuelve PENDIENTE / YA_ENTREGADO / NO_BASE
+
 import { getStore } from '@netlify/blobs';
 
-const store = getStore({ name: 'welcome-packs' });
+// === Configuración de Blobs con credenciales manuales ===
+// (Usa las variables de entorno que creaste en Netlify)
+const store = getStore({
+  name: 'welcome-packs',
+  siteID: process.env.BLOBS_SITE_ID || process.env.SITE_ID,
+  token: process.env.BLOBS_TOKEN
+});
 
-// Helpers
+// ---------- Helpers ----------
 const norm = s => (s || '').toUpperCase().replace(/[.\-]/g, '').trim();
 const noAcc = s => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '');
 const normCat = c => {
@@ -44,16 +52,15 @@ const resumenCats = (miembros) => {
   return Array.from(m.entries()).map(([c, n]) => `${n} - ${c}`);
 };
 
-// Lee base final desde OneDrive (URL en env BASE_CSV_URL)
+// ---------- Lecturas ----------
 async function readBase() {
-  const url = process.env.BASE_CSV_URL;
+  const url = process.env.BASE_CSV_URL; // CSV final (OneDrive con download=1)
   if (!url) throw new Error('Falta BASE_CSV_URL');
   const txt = await (await fetch(url)).text();
   const { rows } = parseCSV(txt);
   return rows.map(mapBaseRow);
 }
 
-// Lee log central desde Netlify Blobs
 async function readLog() {
   const txt = (await store.get('registro_entregas.csv')) || '';
   if (!txt.trim()) return [];
@@ -65,6 +72,7 @@ async function readLog() {
   }));
 }
 
+// ---------- Handler ----------
 export async function handler(event) {
   try {
     const rut = norm(event.queryStringParameters?.rut || '');
