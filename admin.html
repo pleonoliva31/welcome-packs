@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Admin · Reporte Welcome Pack</title>
-
+  <title>Admin · Welcome Pack</title>
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -12,6 +11,25 @@
     .tab-btn[aria-selected="true"] { background: #111827; color: white; }
     .table-wrap { overflow: auto; }
     th, td { white-space: nowrap; }
+
+    /* Controles responsivos (inputs + botón) */
+    .controls { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .controls .grow-item { flex:1 1 220px; min-width:0; }
+    .controls .shrink-item { flex:0 0 auto; }
+    @media (max-width:640px){ .controls .shrink-item{ width:100%; } }
+
+    /* Barra de tabs abajo (estilo app) */
+    body { padding-bottom: 72px; } /* alto aprox de la barra */
+    .bottom-tabs {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      backdrop-filter: saturate(120%) blur(6px);
+      background: rgba(255,255,255,.9);
+      border-top: 1px solid rgba(0,0,0,.08);
+      padding: .5rem .75rem;
+    }
+    .bottom-tabs .tab-btn { flex: 1 1 auto; justify-content: center; gap: .5rem; }
+    .tabs-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.5rem; }
+    @media (min-width:640px){ .tabs-grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
@@ -19,22 +37,14 @@
 
     <!-- Header -->
     <header class="flex items-center justify-between">
-      <h1 class="text-xl font-semibold">Panel de Supervisión · Welcome Pack</h1>
+      <h1 class="text-lg md:text-xl font-semibold">Panel de Supervisión · Welcome Pack</h1>
       <a href="/" class="text-sm underline">← Ir a vista de voluntarios</a>
     </header>
 
-    <!-- Tabs -->
-    <nav class="flex gap-2" role="tablist" aria-label="Secciones admin">
-      <button class="tab-btn px-3 py-2 rounded-xl border" role="tab" aria-selected="true" data-tab="tab-metrics">📊 Métricas</button>
-      <button class="tab-btn px-3 py-2 rounded-xl border" role="tab" aria-selected="false" data-tab="tab-reporte">📋 Reporte Welcome Pack</button>
-      <button class="tab-btn px-3 py-2 rounded-xl border" role="tab" aria-selected="false" data-tab="tab-log">📦 Entregas registradas</button>
-    </nav>
-
-    <!-- Panels -->
+    <!-- PANELS -->
+    <!-- 1) MÉTRICAS -->
     <section id="tab-metrics" role="tabpanel" class="bg-white rounded-2xl shadow p-4 space-y-4">
-      <div id="metrics-summary" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <!-- Cards resumen -->
-      </div>
+      <div id="metrics-summary" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-gray-50 rounded-xl border p-3">
@@ -73,12 +83,13 @@
       </div>
     </section>
 
+    <!-- 2) REPORTE (BASE ACTUALIZADA) -->
     <section id="tab-reporte" role="tabpanel" class="hidden bg-white rounded-2xl shadow p-4 space-y-3">
-      <div class="flex items-center gap-2 justify-between">
+      <div class="flex items-start justify-between gap-2 flex-wrap">
         <h2 class="text-lg font-medium">Reporte Welcome Pack (base actualizada)</h2>
-        <div class="flex gap-2">
-          <input id="reporte-search" class="px-3 py-2 rounded-xl border text-sm" placeholder="Buscar por RUT o nombre...">
-          <button id="reporte-refresh" class="px-3 py-2 rounded-xl bg-black text-white text-sm">Actualizar</button>
+        <div class="controls w-full sm:w-auto">
+          <input id="reporte-search" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Buscar por RUT o nombre...">
+          <button id="reporte-refresh" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Actualizar</button>
         </div>
       </div>
       <div class="table-wrap border rounded-xl">
@@ -107,12 +118,13 @@
       </div>
     </section>
 
+    <!-- 3) LOG DE ENTREGAS -->
     <section id="tab-log" role="tabpanel" class="hidden bg-white rounded-2xl shadow p-4 space-y-3">
-      <div class="flex items-center gap-2 justify-between">
+      <div class="flex items-start justify-between gap-2 flex-wrap">
         <h2 class="text-lg font-medium">Entregas registradas (log)</h2>
-        <div class="flex gap-2">
-          <input id="log-search" class="px-3 py-2 rounded-xl border text-sm" placeholder="Buscar por RUT o nombre receptor...">
-          <button id="log-refresh" class="px-3 py-2 rounded-xl bg-black text-white text-sm">Actualizar</button>
+        <div class="controls w-full sm:w-auto">
+          <input id="log-search" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Buscar por RUT o nombre receptor...">
+          <button id="log-refresh" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Actualizar</button>
         </div>
       </div>
       <div class="table-wrap border rounded-xl">
@@ -142,15 +154,53 @@
         </div>
       </div>
     </section>
+
+    <!-- 4) REGISTRAR ENTREGA (ADMIN) -->
+    <section id="tab-entrega" role="tabpanel" class="hidden bg-white rounded-2xl shadow p-4 space-y-4">
+      <h2 class="text-lg font-medium">Registrar entrega (vista administrador)</h2>
+
+      <!-- Buscador -->
+      <div class="controls w-full sm:w-auto">
+        <input id="adm-rut" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Ingresa RUT (con o sin guion)">
+        <button id="adm-buscar" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Buscar</button>
+      </div>
+
+      <!-- Resultado -->
+      <div id="adm-resultado" class="space-y-3"></div>
+
+      <!-- Form receptor -->
+      <div id="adm-form-receptor" class="hidden bg-gray-50 border rounded-xl p-3 space-y-2">
+        <div class="controls w-full sm:w-auto">
+          <input id="adm-receptor-rut" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="RUT de quien retira">
+          <input id="adm-receptor-nombre" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Nombre de quien retira">
+          <button id="adm-entregar" class="shrink-item px-3 py-2 rounded-xl bg-green-600 text-white text-sm">Entregar TODO</button>
+        </div>
+        <p class="text-xs text-gray-600">Solo puede retirar alguien asociado al mismo abono.</p>
+      </div>
+
+      <!-- Mensajes -->
+      <div id="adm-msg" class="text-sm"></div>
+    </section>
   </div>
 
+  <!-- Barra de pestañas abajo -->
+  <nav class="bottom-tabs">
+    <div class="tabs-grid">
+      <button class="tab-btn px-3 py-2 rounded-xl border" role="tab" aria-selected="true"  data-tab="tab-metrics">📊 Métricas</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border" role="tab" aria-selected="false" data-tab="tab-reporte">📋 Reporte</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border" role="tab" aria-selected="false" data-tab="tab-log">📦 Entregas</button>
+      <button class="tab-btn px-3 py-2 rounded-xl border" role="tab" aria-selected="false" data-tab="tab-entrega">📝 Registrar</button>
+    </div>
+  </nav>
+
   <script>
-    // -------- Tabs --------
+    // ---------- Tabs ----------
     const tabs = document.querySelectorAll('.tab-btn');
     const panels = {
       'tab-metrics': document.getElementById('tab-metrics'),
       'tab-reporte': document.getElementById('tab-reporte'),
-      'tab-log': document.getElementById('tab-log')
+      'tab-log': document.getElementById('tab-log'),
+      'tab-entrega': document.getElementById('tab-entrega')
     };
     tabs.forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -158,14 +208,15 @@
         btn.setAttribute('aria-selected','true');
         Object.values(panels).forEach(p=>p.classList.add('hidden'));
         panels[btn.dataset.tab].classList.remove('hidden');
-        // Carga perezosa por tab
+        // Carga perezosa
         if(btn.dataset.tab==='tab-metrics') loadMetrics();
         if(btn.dataset.tab==='tab-reporte') initReporte();
         if(btn.dataset.tab==='tab-log') initLog();
+        if(btn.dataset.tab==='tab-entrega') initAdminEntrega();
       });
     });
 
-    // -------- Métricas --------
+    // ---------- Métricas ----------
     async function loadMetrics(){
       const summary = document.getElementById('metrics-summary');
       const catsBody = document.getElementById('metrics-cats');
@@ -187,14 +238,14 @@
             <div class="text-2xl font-semibold">${data.porc_total}%</div>
           </div>
         `;
-        catsBody.innerHTML = data.categorias.map(c=>`
+        catsBody.innerHTML = (data.categorias||[]).map(c=>`
           <tr>
             <td class="px-2 py-1 border-b">${c.cat || '-'}</td>
             <td class="px-2 py-1 border-b">${c.entregados}</td>
             <td class="px-2 py-1 border-b">${c.total}</td>
             <td class="px-2 py-1 border-b">${c.porc}%</td>
           </tr>`).join('');
-        tribsBody.innerHTML = data.tribunas.map(t=>`
+        tribsBody.innerHTML = (data.tribunas||[]).map(t=>`
           <tr>
             <td class="px-2 py-1 border-b">${t.tribuna || '-'}</td>
             <td class="px-2 py-1 border-b">${t.entregados}</td>
@@ -203,39 +254,34 @@
           </tr>`).join('');
       }catch(e){
         summary.innerHTML = '<div class="text-red-700">Error cargando métricas</div>';
-        catsBody.innerHTML = '';
-        tribsBody.innerHTML = '';
+        catsBody.innerHTML = tribsBody.innerHTML = '';
       }
     }
 
-    // -------- Utilidades de tablas con paginación simple --------
-    function paginar(data, page, size){
-      const start = (page-1)*size;
-      return data.slice(start, start+size);
-    }
+    // ---------- Utilidades tabla ----------
+    function paginar(data, page, size){ const start=(page-1)*size; return data.slice(start, start+size); }
     function filtrarTexto(data, q, campos){
-      const s = (q||'').toLowerCase();
-      if(!s) return data;
+      const s=(q||'').toLowerCase(); if(!s) return data;
       return data.filter(row=> campos.some(c=> String(row[c]||'').toLowerCase().includes(s)));
     }
 
-    // -------- Reporte (base actualizada) --------
-    let REP_CACHE = [];
-    let repPage = 1;
-    const repSize = 50;
-
+    // ---------- Reporte (base actualizada) ----------
+    let REP_CACHE = []; let repPage = 1; const repSize = 50;
     async function initReporte(){
       if(REP_CACHE.length===0) await loadReporte();
       renderReporte();
       document.getElementById('reporte-refresh').onclick = async ()=>{ await loadReporte(); renderReporte(true); };
       document.getElementById('reporte-search').oninput = ()=> renderReporte();
       document.getElementById('reporte-prev').onclick = ()=> { if(repPage>1){ repPage--; renderReporte(); } };
-      document.getElementById('reporte-next').onclick = ()=> { const q = document.getElementById('reporte-search').value; const rows = filtrarTexto(REP_CACHE, q, ['rut','nombre','categoria','tribuna','sector']); if(repPage*repSize < rows.length){ repPage++; renderReporte(); } };
+      document.getElementById('reporte-next').onclick = ()=> {
+        const q = document.getElementById('reporte-search').value;
+        const rows = filtrarTexto(REP_CACHE, q, ['rut','nombre','categoria','tribuna','sector']);
+        if(repPage*repSize < rows.length){ repPage++; renderReporte(); }
+      };
     }
     async function loadReporte(){
       const res = await fetch('/.netlify/functions/export_base', {cache:'no-store'});
-      REP_CACHE = await res.json();
-      repPage = 1;
+      REP_CACHE = await res.json(); repPage = 1;
     }
     function renderReporte(reset){
       const q = document.getElementById('reporte-search').value;
@@ -252,28 +298,28 @@
           <td class="px-2 py-1 border-b">${r.entregado||'NO'}</td>
           <td class="px-2 py-1 border-b">${r.fecha_entrega||''}</td>
           <td class="px-2 py-1 border-b">${r.rut_receptor||''}</td>
-        </tr>
-      `).join('');
-      document.getElementById('reporte-count').textContent = `Mostrando ${pageRows.length} de ${rows.length} registros · Página ${repPage}`;
+        </tr>`).join('');
+      document.getElementById('reporte-count').textContent =
+        `Mostrando ${pageRows.length} de ${rows.length} registros · Página ${repPage}`;
     }
 
-    // -------- Log (entregas registradas) --------
-    let LOG_CACHE = [];
-    let logPage = 1;
-    const logSize = 50;
-
+    // ---------- Log (entregas) ----------
+    let LOG_CACHE = []; let logPage = 1; const logSize = 50;
     async function initLog(){
       if(LOG_CACHE.length===0) await loadLog();
       renderLog();
       document.getElementById('log-refresh').onclick = async ()=>{ await loadLog(); renderLog(true); };
       document.getElementById('log-search').oninput = ()=> renderLog();
       document.getElementById('log-prev').onclick = ()=> { if(logPage>1){ logPage--; renderLog(); } };
-      document.getElementById('log-next').onclick = ()=> { const q = document.getElementById('log-search').value; const rows = filtrarTexto(LOG_CACHE, q, ['rut','nombre','receptor_nombre','rut_receptor']); if(logPage*logSize < rows.length){ logPage++; renderLog(); } };
+      document.getElementById('log-next').onclick = ()=> {
+        const q = document.getElementById('log-search').value;
+        const rows = filtrarTexto(LOG_CACHE, q, ['rut','nombre','categoria','rut_comprador','nombre_comprador','tribuna','sector','rut_receptor','receptor_nombre']);
+        if(logPage*logSize < rows.length){ logPage++; renderLog(); }
+      };
     }
     async function loadLog(){
       const res = await fetch('/.netlify/functions/get_log', {cache:'no-store'});
-      LOG_CACHE = await res.json();
-      logPage = 1;
+      LOG_CACHE = await res.json(); logPage = 1;
     }
     function renderLog(reset){
       const q = document.getElementById('log-search').value;
@@ -292,12 +338,121 @@
           <td class="px-2 py-1 border-b">${r.rut_receptor||''}</td>
           <td class="px-2 py-1 border-b">${r.receptor_nombre||''}</td>
           <td class="px-2 py-1 border-b">${r.retirado_at||''}</td>
-        </tr>
-      `).join('');
-      document.getElementById('log-count').textContent = `Mostrando ${pageRows.length} de ${rows.length} entregas · Página ${logPage}`;
+        </tr>`).join('');
+      document.getElementById('log-count').textContent =
+        `Mostrando ${pageRows.length} de ${rows.length} entregas · Página ${logPage}`;
     }
 
-    // Cargar por defecto la pestaña de métricas
+    // ---------- Registrar entrega (admin) ----------
+    let ADM_STATE = { rutBuscado: '', grupo: null };
+    function normRutLocal(s){ return (s||'').toUpperCase().replace(/[.\-]/g,'').trim(); }
+
+    function renderAdminResultado(payload){
+      const cont = document.getElementById('adm-resultado');
+      const form = document.getElementById('adm-form-receptor');
+      const msg  = document.getElementById('adm-msg');
+
+      msg.textContent = '';
+      if(!payload || payload.status === 'NO_BASE'){
+        cont.innerHTML = `<div class="p-3 border rounded-xl bg-red-50 text-red-700">No se encontró el RUT en la base.</div>`;
+        form.classList.add('hidden');
+        return;
+      }
+
+      const { status, rut_buscado, nombre_buscado, grupo } = payload;
+      const resumen = (grupo?.miembros||[]).reduce((acc,m)=>{
+        const k = (m.categoria||'').toUpperCase(); acc[k]=(acc[k]||0)+1; return acc;
+      }, {});
+      const resumenStr = Object.entries(resumen).map(([k,v])=>`${v} - ${k}`).join(' · ') || '-';
+
+      cont.innerHTML = `
+        <div class="space-y-2">
+          <div class="p-3 border rounded-xl bg-gray-50">
+            <div><b>Estado:</b> ${status}</div>
+            <div><b>RUT buscado:</b> ${rut_buscado || '-'} · <b>Nombre:</b> ${nombre_buscado || '-'}</div>
+            <div><b>Comprador:</b> ${grupo?.comprador?.nombre_comprador || '-'} (${grupo?.comprador?.rut_comprador || '-'})</div>
+            <div><b>Resumen packs:</b> ${resumenStr}</div>
+          </div>
+          <div class="table-wrap border rounded-xl">
+            <table class="min-w-full text-sm">
+              <thead class="bg-gray-100 text-left">
+                <tr>
+                  <th class="px-2 py-1 border-b">Rut</th>
+                  <th class="px-2 py-1 border-b">Nombre</th>
+                  <th class="px-2 py-1 border-b">Categoría</th>
+                  <th class="px-2 py-1 border-b">Tribuna</th>
+                  <th class="px-2 py-1 border-b">Sector</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(grupo?.miembros||[]).map(m=>`
+                  <tr>
+                    <td class="px-2 py-1 border-b">${m.rut||''}</td>
+                    <td class="px-2 py-1 border-b">${m.nombre||''}</td>
+                    <td class="px-2 py-1 border-b">${m.categoria||''}</td>
+                    <td class="px-2 py-1 border-b">${m.tribuna||''}</td>
+                    <td class="px-2 py-1 border-b">${m.sector||''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      if(status === 'PENDIENTE'){ form.classList.remove('hidden'); }
+      else{
+        form.classList.add('hidden');
+        msg.innerHTML = `<div class="p-2 rounded bg-green-50 text-green-700">Welcome packs ya fueron entregados para este grupo.</div>`;
+      }
+    }
+
+    async function adminBuscar(){
+      const rut = document.getElementById('adm-rut').value;
+      ADM_STATE.rutBuscado = rut;
+      const url = '/.netlify/functions/buscar?rut='+encodeURIComponent(rut);
+      const res = await fetch(url, {cache:'no-store'});
+      const data = await res.json();
+      ADM_STATE.grupo = data.grupo || null;
+      renderAdminResultado(data);
+    }
+
+    async function adminEntregar(){
+      const msg = document.getElementById('adm-msg');
+      msg.textContent = '';
+      if(!ADM_STATE.grupo){
+        msg.innerHTML = `<div class="p-2 rounded bg-yellow-50 text-yellow-700">Busca primero un RUT válido.</div>`;
+        return;
+      }
+      const receptor_rut = document.getElementById('adm-receptor-rut').value;
+      const receptor_nombre = document.getElementById('adm-receptor-nombre').value;
+      if(!receptor_rut || !receptor_nombre){
+        msg.innerHTML = `<div class="p-2 rounded bg-yellow-50 text-yellow-700">Completa RUT y nombre del receptor.</div>`;
+        return;
+      }
+      const res = await fetch('/.netlify/functions/entregar', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          rut_busqueda: ADM_STATE.rutBuscado,
+          receptor_rut, receptor_nombre
+        })
+      });
+      const out = await res.json();
+      if(out.ok){
+        msg.innerHTML = `<div class="p-2 rounded bg-green-50 text-green-700">Entrega registrada exitosamente (${out.entregados} registros).</div>`;
+        await adminBuscar(); // refrescar estado
+      }else{
+        msg.innerHTML = `<div class="p-2 rounded bg-red-50 text-red-700">${out.error || 'Error al registrar entrega'}</div>`;
+      }
+    }
+
+    function initAdminEntrega(){
+      document.getElementById('adm-buscar').onclick = adminBuscar;
+      document.getElementById('adm-entregar').onclick = adminEntregar;
+    }
+
+    // Cargar por defecto la primera pestaña
     loadMetrics();
   </script>
 </body>
