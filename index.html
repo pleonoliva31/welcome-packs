@@ -1,233 +1,211 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Welcome Pack · Registro</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Registro de Welcome Packs</title>
+  <meta name="color-scheme" content="light">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .table-wrap { overflow:auto; }
-    th, td { white-space: nowrap; }
-    .controls { display:flex; flex-wrap:wrap; gap:.5rem; }
-    .controls .grow-item { flex:1 1 220px; min-width:0; }
-    .controls .shrink-item { flex:0 0 auto; }
-    @media (max-width:640px){ .controls .shrink-item{ width:100%; } }
+    .table-wrap{overflow:auto}
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900">
-  <div class="max-w-3xl mx-auto p-4 space-y-4">
+  <main class="max-w-3xl mx-auto p-4 space-y-4">
     <header class="flex items-center justify-between">
-      <h1 class="text-lg md:text-xl font-semibold">Registro de entrega · Welcome Pack</h1>
-      <a href="/admin" class="text-sm underline">Admin</a>
+      <h1 class="text-xl font-bold">Registro de Welcome Packs</h1>
+      <!-- Importante: ya NO hay enlace a admin -->
     </header>
 
-    <!-- Paso 1: Buscar grupo -->
+    <!-- Buscar -->
     <section class="bg-white rounded-2xl shadow p-4 space-y-3">
-      <h2 class="text-base font-medium">1) Buscar abono</h2>
-      <div class="controls">
-        <input id="rut-busqueda" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Ingresa RUT abonado o comprador (con o sin guion)">
-        <button id="btn-buscar" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Buscar</button>
+      <h2 class="text-lg font-semibold">1) Buscar por RUT</h2>
+      <div class="flex gap-2 flex-wrap">
+        <input id="rut-busqueda" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="RUT comprador o asociado (con o sin guión)">
+        <button id="btn-buscar" class="px-4 py-2 rounded-xl bg-black text-white">Buscar</button>
       </div>
-      <div id="resultado-busqueda" class="text-sm"></div>
+      <p class="text-xs text-gray-500">Tip: acepta RUT con o sin puntos/guión.</p>
     </section>
 
-    <!-- Paso 2: Registrar entrega -->
-    <section id="seccion-entrega" class="bg-white rounded-2xl shadow p-4 space-y-3 hidden">
-      <h2 class="text-base font-medium">2) Confirmar entrega</h2>
-      <p class="text-sm text-gray-700">Completa los datos de quien retira. Debe pertenecer al mismo abono.</p>
-      <div class="controls">
-        <input id="receptor-rut" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="RUT de quien retira">
-        <input id="receptor-nombre" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Nombre de quien retira">
-        <button id="btn-entregar" class="shrink-item px-3 py-2 rounded-xl bg-green-600 text-white text-sm">Entregar TODO</button>
-      </div>
-      <div id="msg-entrega" class="text-sm"></div>
-    </section>
-  </div>
+    <!-- Resultado -->
+    <section id="resultado" class="hidden bg-white rounded-2xl shadow p-4 space-y-3"></section>
 
-  <!-- Modal: receptor fuera del grupo -->
-  <div id="error-modal" class="fixed inset-0 z-50 hidden items-center justify-center">
+    <!-- Formulario receptor -->
+    <section id="form-receptor" class="hidden bg-white rounded-2xl shadow p-4 space-y-3">
+      <h2 class="text-lg font-semibold">2) Datos de quien retira</h2>
+      <div class="flex gap-2 flex-wrap">
+        <input id="receptor-rut" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="RUT del receptor">
+        <input id="receptor-nombre" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="Nombre del receptor">
+      </div>
+      <button id="btn-entregar" class="w-full md:w-auto px-4 py-2 rounded-xl bg-green-600 text-white">Registrar entrega</button>
+      <p class="text-xs text-gray-500">* El receptor debe pertenecer al mismo abono.</p>
+      <div id="msg" class="text-sm"></div>
+    </section>
+  </main>
+
+  <!-- Modal de error / mensajes -->
+  <div id="error-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center">
     <div class="absolute inset-0 bg-black/40"></div>
-    <div class="relative mx-4 w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-      <h3 class="mb-2 text-lg font-semibold text-red-700">No corresponde al abono</h3>
-      <p id="error-modal-text" class="text-sm text-gray-700">
-        El RUT ingresado no corresponde a este abono.
-      </p>
+    <div class="relative mx-4 w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+      <h3 class="mb-2 text-lg font-semibold text-red-700">Atención</h3>
+      <p id="error-modal-text" class="text-sm text-gray-800">Ocurrió un problema.</p>
       <div class="mt-4 flex justify-end">
-        <button id="error-modal-continue" class="px-4 py-2 rounded-xl bg-black text-white text-sm">
-          Continuar con nuevo registro
-        </button>
+        <button id="error-modal-continue" class="px-4 py-2 rounded-xl bg-black text-white text-sm">Cerrar</button>
       </div>
     </div>
   </div>
 
   <script>
-    // -------- Utilidades --------
-    const normRut = s => (s||'').toUpperCase().replace(/[.\-]/g,'').trim();
-    function escapeHtml(v){
-      return String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-    }
+    // Utilidades
+    const $ = s => document.querySelector(s);
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 
-    // -------- Modal --------
-    function openErrorModal(texto){
-      document.getElementById('error-modal-text').textContent = texto || 'El RUT ingresado no corresponde a este abono.';
-      const m = document.getElementById('error-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+    // Modal
+    function openErrorModal(text){
+      $('#error-modal-text').textContent = text || 'Ocurrió un problema.';
+      const m = $('#error-modal'); m.classList.remove('hidden'); m.classList.add('flex');
     }
-    function closeErrorModalAndReset(){
-      const m = document.getElementById('error-modal'); m.classList.add('hidden'); m.classList.remove('flex');
-      // Resetea todo para un nuevo registro
-      document.getElementById('rut-busqueda').value = '';
-      document.getElementById('resultado-busqueda').innerHTML = '';
-      document.getElementById('seccion-entrega').classList.add('hidden');
-      document.getElementById('receptor-rut').value = '';
-      document.getElementById('receptor-nombre').value = '';
-      document.getElementById('msg-entrega').textContent = '';
-      document.getElementById('rut-busqueda').focus();
+    function closeErrorModal(){
+      const m = $('#error-modal'); m.classList.add('hidden'); m.classList.remove('flex');
     }
-    document.addEventListener('DOMContentLoaded', ()=>{
-      document.getElementById('error-modal-continue').addEventListener('click', closeErrorModalAndReset);
-      document.addEventListener('keydown',(e)=>{
-        if(e.key==='Escape'){
-          const m=document.getElementById('error-modal');
-          if(!m.classList.contains('hidden')) closeErrorModalAndReset();
-        }
-      });
-    });
+    $('#error-modal-continue').addEventListener('click', closeErrorModal);
+    // cerrar tocando el overlay:
+    document.querySelector('#error-modal .absolute').addEventListener('click', closeErrorModal);
+    document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const m=$('#error-modal'); if(!m.classList.contains('hidden')) closeErrorModal() } });
 
-    // -------- Estado simple --------
-    let STATE = { rutBuscadoRaw:'', rutBuscado:'', grupo:null };
+    // Estado en memoria
+    let ultimoGrupo = null;
+    let ultimoStatus = null;
+    let rutConsultado = '';
 
-    // -------- Buscar grupo --------
-    document.getElementById('btn-buscar').addEventListener('click', buscar);
-    document.getElementById('rut-busqueda').addEventListener('keydown', e=>{ if(e.key==='Enter') buscar(); });
+    // Buscar
+    $('#btn-buscar').addEventListener('click', buscar);
+    $('#rut-busqueda').addEventListener('keydown', e=>{ if(e.key==='Enter') buscar(); });
 
     async function buscar(){
-      const input = document.getElementById('rut-busqueda');
-      const rutRaw = input.value.trim();
-      if(!rutRaw){ input.focus(); return; }
+      const rut = $('#rut-busqueda').value.trim();
+      if(!rut) return openErrorModal('Ingresa un RUT para buscar.');
 
-      const resBox = document.getElementById('resultado-busqueda');
-      const entregaSec = document.getElementById('seccion-entrega');
-      const msgEnt = document.getElementById('msg-entrega');
-
-      resBox.innerHTML = 'Buscando…';
-      entregaSec.classList.add('hidden');
-      msgEnt.textContent = '';
+      $('#resultado').classList.add('hidden');
+      $('#form-receptor').classList.add('hidden');
+      $('#msg').innerHTML = '';
 
       try{
-        const url = '/.netlify/functions/buscar?rut='+encodeURIComponent(rutRaw);
-        const res = await fetch(url, {cache:'no-store'});
-        const data = await res.json();
-
-        if(data.status === 'NO_BASE'){
-          resBox.innerHTML = `<div class="p-3 rounded-xl border bg-red-50 text-red-700">No se encontró el RUT en la base.</div>`;
-          return;
-        }
-
-        // Render de grupo
-        STATE.rutBuscadoRaw = rutRaw;
-        STATE.rutBuscado = normRut(rutRaw);
-        STATE.grupo = data.grupo || null;
-
-        const g = data.grupo;
-        const resumen = (g?.miembros||[]).reduce((acc,m)=>{
-          const k=(m.categoria||'').toUpperCase(); acc[k]=(acc[k]||0)+1; return acc;
-        }, {});
-        const resumenStr = Object.entries(resumen).map(([k,v])=>`${v} - ${k}`).join(' · ') || '-';
-
-        resBox.innerHTML = `
-          <div class="space-y-2">
-            <div class="p-3 border rounded-xl bg-gray-50">
-              <div><b>Estado:</b> ${escapeHtml(data.status)}</div>
-              <div><b>Comprador:</b> ${escapeHtml(g?.comprador?.nombre_comprador||'-')} (${escapeHtml(g?.comprador?.rut_comprador||'-')})</div>
-              <div><b>Resumen packs:</b> ${escapeHtml(resumenStr)}</div>
-            </div>
-            <div class="table-wrap border rounded-xl">
-              <table class="min-w-full text-sm">
-                <thead class="bg-gray-100 text-left">
-                  <tr>
-                    <th class="px-2 py-1 border-b">Rut</th>
-                    <th class="px-2 py-1 border-b">Nombre</th>
-                    <th class="px-2 py-1 border-b">Categoría</th>
-                    <th class="px-2 py-1 border-b">Tribuna</th>
-                    <th class="px-2 py-1 border-b">Sector</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${(g?.miembros||[]).map(m=>`
-                    <tr>
-                      <td class="px-2 py-1 border-b">${escapeHtml(m.rut||'')}</td>
-                      <td class="px-2 py-1 border-b">${escapeHtml(m.nombre||'')}</td>
-                      <td class="px-2 py-1 border-b">${escapeHtml(m.categoria||'')}</td>
-                      <td class="px-2 py-1 border-b">${escapeHtml(m.tribuna||'')}</td>
-                      <td class="px-2 py-1 border-b">${escapeHtml(m.sector||'')}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
-
-        if(data.status === 'PENDIENTE'){
-          entregaSec.classList.remove('hidden');
-          document.getElementById('receptor-rut').focus();
-        }else{
-          entregaSec.classList.add('hidden');
-          msgEnt.innerHTML = `<div class="p-2 rounded bg-green-50 text-green-700">Welcome packs ya fueron entregados para este grupo.</div>`;
-        }
-
-      }catch(err){
-        resBox.innerHTML = `<div class="p-3 rounded-xl border bg-red-50 text-red-700">Error al buscar: ${escapeHtml(err.message)}</div>`;
+        const r = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`, {cache:'no-store'});
+        const out = await r.json();
+        rutConsultado = rut;
+        renderResultado(out);
+      }catch(e){
+        openErrorModal('Error de red: ' + e.message);
       }
     }
 
-    // -------- Entregar --------
-    document.getElementById('btn-entregar').addEventListener('click', entregar);
+    function renderResultado(out){
+      const cont = $('#resultado');
+      cont.innerHTML = '';
+      ultimoGrupo = null; ultimoStatus = null;
 
-    async function entregar(){
-      const msg = document.getElementById('msg-entrega');
-      msg.textContent = '';
-      if(!STATE.grupo){
-        msg.innerHTML = `<div class="p-2 rounded bg-yellow-50 text-yellow-700">Busca primero un RUT válido.</div>`;
+      if(!out || out.status === 'NO_BASE'){
+        cont.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded">No se encontró el RUT en la base.</div>`;
+        cont.classList.remove('hidden');
         return;
       }
-      const receptor_rut = document.getElementById('receptor-rut').value.trim();
-      const receptor_nombre = document.getElementById('receptor-nombre').value.trim();
+      if(out.status === 'ERROR'){
+        cont.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded">Error al cargar: ${esc(out.error||'')}</div>`;
+        cont.classList.remove('hidden');
+        return;
+      }
+
+      const g = out.grupo || null;
+      if(!g){
+        cont.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded">Sin datos de grupo.</div>`;
+        cont.classList.remove('hidden');
+        return;
+      }
+
+      ultimoGrupo = g;
+      ultimoStatus = out.status;
+
+      // resumen categorías
+      const resumen = (g.miembros||[]).reduce((acc,m)=>{
+        const k=(m.categoria||'').toUpperCase(); acc[k]=(acc[k]||0)+1; return acc;
+      },{});
+      const resStr = Object.entries(resumen).map(([k,v])=>`${v} - ${k}`).join(' · ') || '-';
+
+      const estadoBadge = out.status === 'YA_ENTREGADO'
+        ? `<span class="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium">YA ENTREGADO</span>`
+        : `<span class="inline-block px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-medium">PENDIENTE</span>`;
+
+      cont.innerHTML = `
+        <h2 class="text-lg font-semibold">Resultado</h2>
+        <div class="p-3 border rounded-xl bg-gray-50 space-y-1">
+          <div class="flex items-center gap-2"><b>Estado:</b> ${estadoBadge}</div>
+          <div><b>Comprador:</b> ${esc(g?.comprador?.nombre_comprador||'-')} (${esc(g?.comprador?.rut_comprador||'-')})</div>
+          <div><b>Resumen packs:</b> ${esc(resStr)}</div>
+        </div>
+
+        <div class="table-wrap border rounded-xl">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-100 text-left">
+              <tr><th class="px-2 py-1 border-b">RUT</th><th class="px-2 py-1 border-b">Nombre</th><th class="px-2 py-1 border-b">Categoría</th><th class="px-2 py-1 border-b">Tribuna</th><th class="px-2 py-1 border-b">Sector</th></tr>
+            </thead>
+            <tbody>
+              ${(g.miembros||[]).map(m=>`
+                <tr>
+                  <td class="px-2 py-1 border-b">${esc(m.rut||'')}</td>
+                  <td class="px-2 py-1 border-b">${esc(m.nombre||'')}</td>
+                  <td class="px-2 py-1 border-b">${esc(m.categoria||'')}</td>
+                  <td class="px-2 py-1 border-b">${esc(m.tribuna||'')}</td>
+                  <td class="px-2 py-1 border-b">${esc(m.sector||'')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        ${out.status==='YA_ENTREGADO'
+          ? `<div class="p-2 bg-green-50 text-green-700 rounded">Este grupo ya retiró sus packs.</div>`
+          : ``}
+      `;
+      cont.classList.remove('hidden');
+
+      // mostrar/ocultar formulario receptor
+      if(out.status === 'PENDIENTE'){
+        $('#form-receptor').classList.remove('hidden');
+      } else {
+        $('#form-receptor').classList.add('hidden');
+      }
+    }
+
+    // Registrar entrega
+    $('#btn-entregar').addEventListener('click', async ()=>{
+      if(ultimoStatus !== 'PENDIENTE' || !ultimoGrupo){
+        return openErrorModal('Este grupo ya retiró, o no hay una búsqueda válida.');
+      }
+      const receptor_rut = $('#receptor-rut').value.trim();
+      const receptor_nombre = $('#receptor-nombre').value.trim();
       if(!receptor_rut || !receptor_nombre){
-        msg.innerHTML = `<div class="p-2 rounded bg-yellow-50 text-yellow-700">Completa RUT y nombre del receptor.</div>`;
-        return;
+        return openErrorModal('Completa RUT y nombre del receptor.');
       }
+
       try{
-        const res = await fetch('/.netlify/functions/entregar', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            rut_busqueda: STATE.rutBuscadoRaw,
-            receptor_rut,
-            receptor_nombre
-          })
+        const r = await fetch('/.netlify/functions/entregar', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ rut_busqueda: rutConsultado, receptor_rut, receptor_nombre })
         });
-        const out = await res.json();
+        const out = await r.json();
         if(out.ok){
-          msg.innerHTML = `<div class="p-2 rounded bg-green-50 text-green-700">Entrega registrada exitosamente (${out.entregados} registros).</div>`;
-          // refrescar búsqueda para ver estado actualizado
+          $('#msg').innerHTML = `<div class="p-2 bg-green-50 text-green-700 rounded">Entrega registrada.</div>`;
+          // refrescar búsqueda para que quede como YA_ENTREGADO
           await buscar();
-          // limpiar campos receptor
-          document.getElementById('receptor-rut').value='';
-          document.getElementById('receptor-nombre').value='';
+          $('#form-receptor').classList.add('hidden');
+          $('#receptor-rut').value=''; $('#receptor-nombre').value='';
         }else{
-          const texto = out.error || 'Error al registrar entrega';
-          // Si el receptor no pertenece al grupo → abrir modal
-          if(/no corresponde/i.test(texto) || /no\s+corresponde\s+al\s+abono/i.test(texto)){
-            openErrorModal('El RUT ingresado no corresponde a este abono.');
-          }else{
-            msg.innerHTML = `<div class="p-2 rounded bg-red-50 text-red-700">${escapeHtml(texto)}</div>`;
-          }
+          openErrorModal(out.error || 'No fue posible registrar.');
         }
-      }catch(err){
-        msg.innerHTML = `<div class="p-2 rounded bg-red-50 text-red-700">Error de red: ${escapeHtml(err.message)}</div>`;
+      }catch(e){
+        openErrorModal('Error de red: ' + e.message);
       }
-    }
+    });
   </script>
 </body>
 </html>
