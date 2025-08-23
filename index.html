@@ -6,25 +6,23 @@
   <title>Registro de Welcome Packs</title>
   <meta name="color-scheme" content="light">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    .table-wrap{overflow:auto}
-  </style>
+  <style>.table-wrap{overflow:auto}</style>
 </head>
 <body class="bg-gray-50 text-gray-900">
   <main class="max-w-3xl mx-auto p-4 space-y-4">
     <header class="flex items-center justify-between">
-      <h1 class="text-xl font-bold">Registro de Welcome Packs</h1>
-      <!-- Importante: ya NO hay enlace a admin -->
+      <h1 class="text-xl font-bold">Registro de entrega · Welcome Pack</h1>
+      <!-- SIN enlace a admin -->
     </header>
 
     <!-- Buscar -->
     <section class="bg-white rounded-2xl shadow p-4 space-y-3">
-      <h2 class="text-lg font-semibold">1) Buscar por RUT</h2>
+      <h2 class="text-lg font-semibold">1) Buscar abono</h2>
       <div class="flex gap-2 flex-wrap">
-        <input id="rut-busqueda" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="RUT comprador o asociado (con o sin guión)">
+        <input id="rut-busqueda" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="Ingresa RUT abonado o comprador (con o sin guión)">
         <button id="btn-buscar" class="px-4 py-2 rounded-xl bg-black text-white">Buscar</button>
       </div>
-      <p class="text-xs text-gray-500">Tip: acepta RUT con o sin puntos/guión.</p>
+      <p class="text-xs text-gray-500">Acepta RUT con o sin puntos/guión.</p>
     </section>
 
     <!-- Resultado -->
@@ -43,7 +41,7 @@
     </section>
   </main>
 
-  <!-- Modal de error / mensajes -->
+  <!-- Modal de error -->
   <div id="error-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center">
     <div class="absolute inset-0 bg-black/40"></div>
     <div class="relative mx-4 w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
@@ -56,27 +54,24 @@
   </div>
 
   <script>
-    // Utilidades
+    // Helpers
     const $ = s => document.querySelector(s);
     const esc = v => String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    const normRut = s => (s||'').toUpperCase().replace(/[.\-]/g,'').trim();
 
-    // Modal
     function openErrorModal(text){
-      $('#error-modal-text').textContent = text || 'Ocurrió un problema.';
-      const m = $('#error-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+      $('#error-modal-text').textContent = text||'Ocurrió un problema.';
+      const m=$('#error-modal'); m.classList.remove('hidden'); m.classList.add('flex');
     }
     function closeErrorModal(){
-      const m = $('#error-modal'); m.classList.add('hidden'); m.classList.remove('flex');
+      const m=$('#error-modal'); m.classList.add('hidden'); m.classList.remove('flex');
     }
     $('#error-modal-continue').addEventListener('click', closeErrorModal);
-    // cerrar tocando el overlay:
     document.querySelector('#error-modal .absolute').addEventListener('click', closeErrorModal);
     document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const m=$('#error-modal'); if(!m.classList.contains('hidden')) closeErrorModal() } });
 
-    // Estado en memoria
-    let ultimoGrupo = null;
-    let ultimoStatus = null;
-    let rutConsultado = '';
+    // Estado
+    let ultimoGrupo=null, ultimoStatus=null, rutConsultado='';
 
     // Buscar
     $('#btn-buscar').addEventListener('click', buscar);
@@ -103,14 +98,14 @@
     function renderResultado(out){
       const cont = $('#resultado');
       cont.innerHTML = '';
-      ultimoGrupo = null; ultimoStatus = null;
+      ultimoGrupo=null; ultimoStatus=null;
 
-      if(!out || out.status === 'NO_BASE'){
+      if(!out || out.status==='NO_BASE'){
         cont.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded">No se encontró el RUT en la base.</div>`;
         cont.classList.remove('hidden');
         return;
       }
-      if(out.status === 'ERROR'){
+      if(out.status==='ERROR'){
         cont.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded">Error al cargar: ${esc(out.error||'')}</div>`;
         cont.classList.remove('hidden');
         return;
@@ -126,20 +121,32 @@
       ultimoGrupo = g;
       ultimoStatus = out.status;
 
-      // resumen categorías
+      // Resumen de categorías
       const resumen = (g.miembros||[]).reduce((acc,m)=>{
         const k=(m.categoria||'').toUpperCase(); acc[k]=(acc[k]||0)+1; return acc;
       },{});
       const resStr = Object.entries(resumen).map(([k,v])=>`${v} - ${k}`).join(' · ') || '-';
 
-      const estadoBadge = out.status === 'YA_ENTREGADO'
-        ? `<span class="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium">YA ENTREGADO</span>`
+      // Resuelve "RUT buscado" y "Nombre"
+      const rutBuscadoNorm = normRut(rutConsultado);
+      let nombreBuscado = '';
+      const matchMiembro = (g.miembros||[]).find(m => normRut(m.rut)===rutBuscadoNorm);
+      if (matchMiembro) {
+        nombreBuscado = matchMiembro.nombre || '';
+      } else if (normRut(g?.comprador?.rut_comprador||'') === rutBuscadoNorm) {
+        nombreBuscado = g?.comprador?.nombre_comprador || '';
+      }
+
+      const estadoBadge = out.status==='YA_ENTREGADO'
+        ? `<span class="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium">YA_ENTREGADO</span>`
         : `<span class="inline-block px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-medium">PENDIENTE</span>`;
 
       cont.innerHTML = `
         <h2 class="text-lg font-semibold">Resultado</h2>
+
         <div class="p-3 border rounded-xl bg-gray-50 space-y-1">
           <div class="flex items-center gap-2"><b>Estado:</b> ${estadoBadge}</div>
+          <div><b>RUT buscado:</b> ${esc(rutConsultado)} · <b>Nombre:</b> ${esc(nombreBuscado || '-')}</div>
           <div><b>Comprador:</b> ${esc(g?.comprador?.nombre_comprador||'-')} (${esc(g?.comprador?.rut_comprador||'-')})</div>
           <div><b>Resumen packs:</b> ${esc(resStr)}</div>
         </div>
@@ -147,7 +154,13 @@
         <div class="table-wrap border rounded-xl">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-100 text-left">
-              <tr><th class="px-2 py-1 border-b">RUT</th><th class="px-2 py-1 border-b">Nombre</th><th class="px-2 py-1 border-b">Categoría</th><th class="px-2 py-1 border-b">Tribuna</th><th class="px-2 py-1 border-b">Sector</th></tr>
+              <tr>
+                <th class="px-2 py-1 border-b">Rut</th>
+                <th class="px-2 py-1 border-b">Nombre</th>
+                <th class="px-2 py-1 border-b">Categoría</th>
+                <th class="px-2 py-1 border-b">Tribuna</th>
+                <th class="px-2 py-1 border-b">Sector</th>
+              </tr>
             </thead>
             <tbody>
               ${(g.miembros||[]).map(m=>`
@@ -163,7 +176,7 @@
         </div>
 
         ${out.status==='YA_ENTREGADO'
-          ? `<div class="p-2 bg-green-50 text-green-700 rounded">Este grupo ya retiró sus packs.</div>`
+          ? `<div class="p-2 bg-green-50 text-green-700 rounded">Welcome packs ya fueron entregados para este grupo.</div>`
           : ``}
       `;
       cont.classList.remove('hidden');
@@ -171,14 +184,14 @@
       // mostrar/ocultar formulario receptor
       if(out.status === 'PENDIENTE'){
         $('#form-receptor').classList.remove('hidden');
-      } else {
+      }else{
         $('#form-receptor').classList.add('hidden');
       }
     }
 
     // Registrar entrega
     $('#btn-entregar').addEventListener('click', async ()=>{
-      if(ultimoStatus !== 'PENDIENTE' || !ultimoGrupo){
+      if(ultimoStatus!=='PENDIENTE' || !ultimoGrupo){
         return openErrorModal('Este grupo ya retiró, o no hay una búsqueda válida.');
       }
       const receptor_rut = $('#receptor-rut').value.trim();
@@ -189,14 +202,14 @@
 
       try{
         const r = await fetch('/.netlify/functions/entregar', {
-          method:'POST', headers:{'Content-Type':'application/json'},
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ rut_busqueda: rutConsultado, receptor_rut, receptor_nombre })
         });
         const out = await r.json();
         if(out.ok){
           $('#msg').innerHTML = `<div class="p-2 bg-green-50 text-green-700 rounded">Entrega registrada.</div>`;
-          // refrescar búsqueda para que quede como YA_ENTREGADO
-          await buscar();
+          await buscar(); // refresca a YA_ENTREGADO
           $('#form-receptor').classList.add('hidden');
           $('#receptor-rut').value=''; $('#receptor-nombre').value='';
         }else{
