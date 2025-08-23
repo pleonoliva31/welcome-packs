@@ -1,0 +1,48 @@
+// netlify/functions/export_base.js
+import { getStore } from '@netlify/blobs';
+
+const store=getStore({
+  name:'welcome-packs',
+  siteID:process.env.BLOBS_SITE_ID||process.env.SITE_ID,
+  token:process.env.BLOBS_TOKEN
+});
+const norm=s=>(s||'').toUpperCase().replace(/[.\-]/g,'');
+
+function parseCSV(text){
+  const clean=text.replace(/^\uFEFF/,'').replace(/\r/g,'');
+  const lines=clean.split('\n').filter(Boolean);
+  if(!lines.length)return{headers:[],rows:[]};
+  const delim=lines[0].includes(';')?';':',';
+  const headers=lines[0].split(delim).map(h=>h.trim());
+  const rows=lines.slice(1).map(l=>{
+    const c=l.split(delim);const o={};headers.forEach((h,i)=>o[h]=c[i]?.trim()??'');return o;
+  });
+  return{headers,rows};
+}
+
+async function readBase(){const url=process.env.BASE_CSV_URL;const txt=await(await fetch(url)).text();return parseCSV(txt).rows;}
+async function readLog(){const txt=(await store.get('registro_entregas.csv'))||'';if(!txt.trim())return[];return parseCSV(txt).rows;}
+
+export async function handler(){
+  try{
+    const base=await readBase();
+    const log=await readLog();
+    const entregasByRut={};
+    log.forEach(r=>{entregasByRut[norm(r.rut)]={fecha:r.retirado_at,rut_receptor:r.receptor_rut};});
+    const actualizada=base.map(r=>{
+      const rut=norm(r['Rut']||r['rut']);
+      const entrega=entregasByRut[rut];
+      return {
+        rut:rut,
+        nombre:r['Nombre Completo']||r['nombre'],
+        categoria:r['Welcome Pack']||r['categoria'],
+        tribuna:r['Tribuna']||r['tribuna'],
+        sector:r['Sector']||r['sector'],
+        entregado: entrega? 'SI':'NO',
+        fecha_entrega: entrega? entrega.fecha:'',
+        rut_receptor: entrega? entrega.rut_receptor:''
+      };
+    });
+    return {statusCode:200, headers:{'Content-Type':'application/json'}, body:JSON.stringify(actualizada)};
+  }catch(e){return{statusCode:500,body:e.message};}
+}
