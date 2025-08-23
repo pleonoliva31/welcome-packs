@@ -1,144 +1,96 @@
-import { getStore } from '@netlify/blobs';
+// netlify/functions/entregar.js
+import { getLog, putLog } from "./_log_utils.js";
 
-const sinAcentos = (s)=> (s||'').normalize('NFD').replace(/\p{Diacritic}/gu,'');
-const normRut    = (s)=> (s||'').toUpperCase().replace(/[.\-]/g,'').trim();
-const normKey    = (k)=> sinAcentos(String(k||'')).toLowerCase().replace(/\uFEFF/g,'').replace(/[\s_]/g,'');
+export const handler = async (event) => {
+  try {
+    if (event.httpMethod !== "POST") return json({ ok:false, error:"METHOD_NOT_ALLOWED" }, 405);
+    const body = JSON.parse(event.body || "{}");
+    const rutBusqueda     = normRut(body.rut_busqueda || "");
+    const receptor_rut    = normRut(body.receptor_rut || "");
+    const receptor_nombre = (body.receptor_nombre || "").trim();
 
-const ALIAS = {
-  rut:              ['rut','RUT','RUN','RUT ABONADO','RUT TITULAR','Rut Abonado'],
-  nombre:           ['nombre','Nombre','Nombre Completo','NOMBRE COMPLETO'],
-  categoria:        ['categoria','Welcome Pack','Categoria Pack','Pack','WELCOME PACK'],
-  rut_comprador:    ['rut_comprador','Rut Comprador','RUT COMPRADOR','RUT TITULAR'],
-  nombre_comprador: ['nombre_comprador','Nombre Comprador','Nombre Titular','NOMBRE TITULAR'],
-  tribuna:          ['tribuna','Tribuna','Localidad'],
-  sector:           ['sector','Sector','Sección','Seccion']
+    if (!rutBusqueda || !receptor_rut || !receptor_nombre) {
+      return json({ ok:false, error:"FALTAN_PARAMETROS" }, 400);
+    }
+
+    const baseUrl = process.env.BASE_CSV_URL;
+    if (!baseUrl) return json({ ok:false, error:"NO_BASE_URL" }, 500);
+
+    const res = await fetch(baseUrl, { cache:"no-store" });
+    if (!res.ok) return json({ ok:false, error:"CSV_FETCH_ERROR" }, 500);
+    const csv = await res.text();
+    const rows = parseBase(csv);
+
+    const grupo = findGrupo(rows, rutBusqueda);
+    if (!grupo) return json({ ok:false, error:"RUT_NO_ENCONTRADO" }, 404);
+
+    const log = await getLog();
+    const ya = log.some(x => normRut(x.rut_comprador) === normRut(grupo.comprador.rut_comprador));
+    if (ya) return json({ ok:false, error:"YA_ENTREGADO" }, 400);
+
+    const pertenece = grupo.miembros.some(m => normRut(m.rut) === receptor_rut);
+    if (!pertenece) {
+      return json({ ok:false, error:"El RUT ingresado no corresponde a este abono" }, 400);
+    }
+
+    const detalle = resumenPorCategoria(grupo.miembros);
+    await putLog({
+      rut_receptor: receptor_rut,
+      nombre_receptor: receptor_nombre,
+      rut_comprador: grupo.comprador.rut_comprador,
+      nombre_comprador: grupo.comprador.nombre_comprador,
+      total_packs: detalle.reduce((s,d)=> s+d.cantidad, 0),
+      detalle,
+      detalle_texto: detalle.map(d=>`${d.cantidad} ${d.cat}`).join(" · "),
+      ts: new Date().toISOString()
+    });
+
+    return json({ ok:true });
+  } catch (e) {
+    return json({ ok:false, error:String(e) }, 500);
+  }
 };
 
-async function readBase(){
-  const url = process.env.BASE_CSV_URL;
-  if(!url) throw new Error('Falta BASE_CSV_URL');
-  const txt = await (await fetch(url)).text();
-  const clean = txt.replace(/^\uFEFF/, '').replace(/\r/g,'');
-  const lines = clean.split('\n').filter(Boolean);
-  if(!lines.length) return [];
-  const delim = lines[0].includes(';')?';':',';
-  const headers = lines[0].split(delim).map(h=>h.trim());
-  const idx = {}; headers.forEach(h=> idx[normKey(h)] = h);
+// utils
+function json(obj, status=200){ return { statusCode: status, headers:{ "Content-Type":"application/json" }, body: JSON.stringify(obj) }; }
+function normRut(s){ return (s||"").toUpperCase().replace(/[.\-]/g,"").trim(); }
 
-  const pick = (row, names) => { for(const n of names){ const k = idx[normKey(n)]; if(k && row[k]) return row[k]; } return ''; };
-  const normCat = c=>{ const x = sinAcentos((c||'').toUpperCase()); if(/PREM/.test(x)) return 'PREMIUM'; if(/NIN/.test(x)) return 'NINO'; return 'ESTANDAR'; };
+function parseBase(text){
+  const lines = text.replace(/\r/g,"").split("\n").filter(Boolean);
+  if (!lines.length) return [];
+  const delim = lines[0].includes(";") ? ";" : ",";
+  const header = lines[0].split(delim).map(h=>h.toLowerCase().replace(/\s+/g,"_").replace(/[^\w]/g,""));
 
-  const rows = lines.slice(1).map(l=>{
-    const cells = l.split(delim); const row={}; headers.forEach((h,i)=> row[h]=(cells[i]??'').trim());
-    const obj = {
-      rut:              normRut(pick(row, ALIAS.rut)),
-      nombre:           pick(row, ALIAS.nombre),
-      categoria:        normCat(pick(row, ALIAS.categoria)),
-      rut_comprador:    normRut(pick(row, ALIAS.rut_comprador)) || normRut(pick(row, ALIAS.rut)),
-      nombre_comprador: pick(row, ALIAS.nombre_comprador) || pick(row, ALIAS.nombre),
-      tribuna:          pick(row, ALIAS.tribuna),
-      sector:           pick(row, ALIAS.sector)
-    };
-    return (obj.rut || obj.rut_comprador) ? obj : null;
-  }).filter(Boolean);
-
-  return rows;
-}
-
-const store = getStore({
-  name: 'welcome-packs',
-  siteID: process.env.BLOBS_SITE_ID || process.env.SITE_ID,
-  token: process.env.BLOBS_TOKEN
-});
-
-function parseCSV(text){
-  const clean = text.replace(/^\uFEFF/, '').replace(/\r/g,'');
-  const lines = clean.split('\n').filter(Boolean);
-  if(!lines.length) return {headers:[],rows:[],delim:','};
-  const delim = lines[0].includes(';')?';':',';
-  const headers = lines[0].split(delim).map(h=>h.trim());
-  const rows = lines.slice(1).map(l=>{
-    const c = l.split(delim); const o={}; headers.forEach((h,i)=> o[h] = (c[i]??'').trim()); return o;
-  });
-  return {headers,rows,delim};
-}
-function toCSV(headers, rows, delim=','){
-  const head = headers.join(delim);
-  const body = rows.map(r=> headers.map(h=> r[h]??'').join(delim)).join('\n');
-  return head + (rows.length?'\n':'') + body;
-}
-async function readLog(){
-  const txt = (await store.get('registro_entregas.csv')) || '';
-  if(!txt.trim()){
+  return lines.slice(1).map(line=>{
+    const cols=line.split(delim); const o={}; header.forEach((h,i)=>o[h]=(cols[i]||"").trim());
     return {
-      headers: [
-        'rut','nombre','categoria','tribuna','sector',
-        'rut_comprador','nombre_comprador',
-        'rut_receptor','receptor_nombre','retirado_at'
-      ],
-      rows: [], delim: ','
+      rut: o.rut || "",
+      nombre: o.nombre || o["nombre_completo"] || "",
+      categoria: o.categoria || o["welcome_pack"] || "",
+      tribuna: o.tribuna || "",
+      sector: o.sector || "",
+      rut_comprador: o.rut_comprador || o["rutcomprador"] || "",
+      nombre_comprador: o.nombre_comprador || ""
     };
-  }
-  const parsed = parseCSV(txt);
-  const headers = [
-    'rut','nombre','categoria','tribuna','sector',
-    'rut_comprador','nombre_comprador',
-    'rut_receptor','receptor_nombre','retirado_at'
-  ];
-  const rows = parsed.rows.map(r=>{ const o={}; headers.forEach(h=> o[h]=r[h]??''); return o; });
-  return {headers, rows, delim: parsed.delim||','};
+  });
 }
 
-export async function handler(event){
-  try{
-    if(event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
-    const body = JSON.parse(event.body||'{}');
-    const rutBusqueda   = normRut(body.rut_busqueda||'');
-    const rutReceptor   = normRut(body.receptor_rut||'');
-    const nombreReceptor= (body.receptor_nombre||'').trim();
-    if(!rutBusqueda || !rutReceptor || !nombreReceptor){
-      return { statusCode: 400, body: JSON.stringify({ ok:false, error:'Campos incompletos' }) };
-    }
+function findGrupo(rows, qRut){
+  const hit = rows.find(r => normRut(r.rut)===qRut || normRut(r.rut_comprador)===qRut);
+  if (!hit) return null;
+  const rutComprador = hit.rut_comprador || hit.rut;
+  const miembros = rows.filter(r =>
+    normRut(r.rut_comprador)===normRut(rutComprador) ||
+    normRut(r.rut)===normRut(rutComprador)
+  );
+  return { comprador:{ rut_comprador: rutComprador, nombre_comprador: hit.nombre_comprador || "" }, miembros };
+}
 
-    const base = await readBase();
-    const any  = base.find(r=> r.rut===rutBusqueda || r.rut_comprador===rutBusqueda);
-    if(!any) return { statusCode: 200, body: JSON.stringify({ ok:false, error:'RUT no está en la base' }) };
-
-    const grupo = base.filter(r=> r.rut_comprador === any.rut_comprador);
-
-    // Validar receptor pertenece al grupo
-    const receptorEnGrupo = grupo.some(m=> m.rut === rutReceptor);
-    if(!receptorEnGrupo){
-      return { statusCode: 200, body: JSON.stringify({ ok:false, error: 'El RUT ingresado no corresponde a este abono' }) };
-    }
-
-    // ¿Ya entregado completamente?
-    const log = await readLog();
-    const ya  = log.rows.filter(r=> r.rut_comprador === any.rut_comprador);
-    if(ya.length >= grupo.length){
-      return { statusCode: 200, body: JSON.stringify({ ok:false, error:'Welcome packs ya fueron entregados para este grupo' }) };
-    }
-
-    // Registrar entrega TOTAL
-    const now = new Date().toISOString();
-    const nuevas = grupo.map(m=>({
-      rut: m.rut,
-      nombre: m.nombre,
-      categoria: m.categoria,
-      tribuna: m.tribuna,
-      sector: m.sector,
-      rut_comprador: any.rut_comprador,
-      nombre_comprador: any.nombre_comprador,
-      rut_receptor: rutReceptor,
-      receptor_nombre: nombreReceptor,
-      retirado_at: now
-    }));
-    const allRows = [...log.rows, ...nuevas];
-    const csv = toCSV(log.headers, allRows, log.delim);
-    await store.set('registro_entregas.csv', csv, { addRandomSuffix:false });
-
-    return { statusCode: 200, body: JSON.stringify({ ok:true, entregados: nuevas.length }) };
-  }catch(err){
-    return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
-  }
+function resumenPorCategoria(miembros){
+  const acc = {};
+  miembros.forEach(m => {
+    const k = (m.categoria||"").toUpperCase();
+    acc[k] = (acc[k]||0)+1;
+  });
+  return Object.entries(acc).map(([cat,cantidad])=>({ cat, cantidad }));
 }
