@@ -1,9 +1,9 @@
-// netlify/functions/get_log.js
 import { getStore } from '@netlify/blobs';
+
 const store = getStore({
-  name:'welcome-packs',
-  siteID:process.env.BLOBS_SITE_ID||process.env.SITE_ID,
-  token:process.env.BLOBS_TOKEN
+  name: 'welcome-packs',
+  siteID: process.env.BLOBS_SITE_ID || process.env.SITE_ID,
+  token: process.env.BLOBS_TOKEN
 });
 
 function parseCSV(text){
@@ -18,30 +18,28 @@ function parseCSV(text){
   return {headers, rows};
 }
 
+const normRut = s => (s||'').toUpperCase().replace(/[.\-]/g,'').trim();
+
 export async function handler(){
   try{
     const txt=(await store.get('registro_entregas.csv'))||'';
-    if(!txt.trim()) return {statusCode:200, body:'[]'};
+    if(!txt.trim()) return {statusCode:200, headers:{'Content-Type':'application/json'}, body:'[]'};
 
     const {rows}=parseCSV(txt);
-    // normaliza nombres esperados
-    const norm = s=>(s||'').toUpperCase().replace(/[.\-]/g,'').trim();
-    const safe = r => ({
-      rut: r.rut||r.RUT||'',
-      nombre: r.nombre||r.NOMBRE||'',
-      categoria: (r.categoria||r.CATEGORIA||'').toUpperCase(),
-      rut_comprador: norm(r.rut_comprador||r.RUT_COMPRADOR||''),
-      nombre_comprador: r.nombre_comprador||r.NOMBRE_COMPRADOR||'',
-      rut_receptor: norm(r.rut_receptor||r.RUT_RECEPTOR||''),
-      receptor_nombre: r.receptor_nombre||r.RECEPTOR_NOMBRE||'',
-      retirado_at: r.retirado_at||r.RETIRADO_AT||''
+    const mapRow = r => ({
+      rut: r.rut || r.RUT || '',
+      nombre: r.nombre || r.NOMBRE || '',
+      categoria: (r.categoria || r.CATEGORIA || '').toUpperCase(),
+      rut_comprador: normRut(r.rut_comprador || r.RUT_COMPRADOR || ''),
+      nombre_comprador: r.nombre_comprador || r.NOMBRE_COMPRADOR || '',
+      rut_receptor: normRut(r.rut_receptor || r.RUT_RECEPTOR || ''),
+      receptor_nombre: r.receptor_nombre || r.RECEPTOR_NOMBRE || '',
+      retirado_at: r.retirado_at || r.RETIRADO_AT || ''
     });
+    const clean = rows.map(mapRow).filter(r=> r.rut_comprador);
 
-    const cleanRows = rows.map(safe).filter(r=> r.rut_comprador);
-
-    // agrupar por rut_comprador
     const groups = {};
-    for(const r of cleanRows){
+    for(const r of clean){
       const key = r.rut_comprador;
       if(!groups[key]){
         groups[key] = {
@@ -50,21 +48,19 @@ export async function handler(){
           rut_receptor: r.rut_receptor,
           nombre_receptor: r.receptor_nombre,
           total_packs: 0,
-          detalle: {}  // cat -> cantidad
+          detalle: {}
         };
       }
       groups[key].total_packs += 1;
       const cat = r.categoria || 'ESTANDAR';
       groups[key].detalle[cat] = (groups[key].detalle[cat]||0) + 1;
 
-      // si hay varias filas, mantenemos el último receptor cargado (normalmente es el mismo)
       if(r.retirado_at && r.receptor_nombre){
         groups[key].rut_receptor = r.rut_receptor || groups[key].rut_receptor;
         groups[key].nombre_receptor = r.receptor_nombre || groups[key].nombre_receptor;
       }
     }
 
-    // ordenar por fecha no es trivial si agregamos; dejamos por rut_comprador
     const out = Object.values(groups).map(g=>{
       const detalleArr = Object.entries(g.detalle).map(([cat,cantidad])=>({cat, cantidad}));
       const detalleTexto = detalleArr.map(d=>`${d.cantidad} ${d.cat}`).join(' · ');
@@ -79,8 +75,10 @@ export async function handler(){
       };
     });
 
-    return {statusCode:200, headers:{'Content-Type':'application/json'}, body:JSON.stringify(out)};
+    out.sort((a,b)=> (a.rut_comprador > b.rut_comprador ? 1 : -1));
+
+    return { statusCode:200, headers:{'Content-Type':'application/json'}, body: JSON.stringify(out) };
   }catch(e){
-    return {statusCode:500, body:JSON.stringify({error:e.message})};
+    return { statusCode:500, body: JSON.stringify({error:e.message}) };
   }
 }
