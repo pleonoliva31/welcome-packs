@@ -1,5 +1,5 @@
 // netlify/functions/rut_sugerencias.js
-import fetch from "node-fetch";
+// Usa fetch nativo de Node 18 (no node-fetch)
 
 export const handler = async (event) => {
   try {
@@ -10,7 +10,7 @@ export const handler = async (event) => {
     const baseUrl = process.env.BASE_CSV_URL;
     if (!baseUrl) return json({ ok: false, error: "NO_BASE_URL" }, 500);
 
-    // Descarga CSV
+    // Descarga CSV (sin cache)
     const res = await fetch(baseUrl, { cache: "no-store" });
     if (!res.ok) return json({ ok: false, error: "CSV_FETCH_ERROR" }, 500);
     const csv = await res.text();
@@ -31,7 +31,7 @@ export const handler = async (event) => {
     for (const it of items) {
       const rt = normRut(it.rut);
       if (!rt) continue;
-      if (rt[0] !== q[0]) continue;          // primer dígito igual (filtro agresivo)
+      if (rt[0] !== q[0]) continue;           // 1er dígito igual (filtro agresivo)
       if (rt.slice(0, 3) !== prefQ) continue; // prefijo 3 dígitos
       const d = damerau(q, rt, 2);            // corta si > 2
       if (d <= 2) {
