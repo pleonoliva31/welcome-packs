@@ -19,13 +19,14 @@
   <main class="max-w-7xl mx-auto p-4 space-y-4">
     <h1 class="text-xl font-bold">Panel de Supervisión · Welcome Pack</h1>
 
-    <!-- Tabs -->
+    <!-- Registrar -->
     <section id="tab-registrar" class="tab active bg-white rounded-2xl shadow p-4 space-y-3">
       <h2 class="text-lg font-semibold">Registrar entrega (admin)</h2>
       <div class="flex gap-2 flex-wrap">
-        <input id="adm-rut" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="RUT comprador/asociado">
+        <input id="adm-rut" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="RUT comprador o asociado">
         <button id="adm-buscar" class="px-4 py-2 rounded-xl bg-black text-white">Buscar</button>
       </div>
+
       <div id="adm-resultado" class="text-sm"></div>
 
       <div id="adm-form-receptor" class="hidden bg-gray-50 border rounded-xl p-3 space-y-2">
@@ -34,12 +35,23 @@
           <input id="adm-receptor-nombre" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="Nombre de quien retira">
           <button id="adm-entregar" class="px-4 py-2 rounded-xl bg-green-600 text-white">Entregar TODO</button>
         </div>
-        <p class="text-xs text-gray-600">El receptor debe pertenecer al mismo abono.</p>
+        <p class="text-xs text-gray-600">* El receptor debe pertenecer al mismo abono.</p>
       </div>
 
       <div id="adm-msg" class="text-sm"></div>
     </section>
 
+    <!-- Ver abono (solo lectura) -->
+    <section id="tab-verabono" class="tab bg-white rounded-2xl shadow p-4 space-y-3">
+      <h2 class="text-lg font-semibold">Ver abono (solo lectura)</h2>
+      <div class="flex gap-2 flex-wrap">
+        <input id="ver-rut" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="RUT comprador o asociado">
+        <button id="ver-buscar" class="px-4 py-2 rounded-xl bg-black text-white">Ver</button>
+      </div>
+      <div id="ver-resultado" class="text-sm"></div>
+    </section>
+
+    <!-- Reporte -->
     <section id="tab-reporte" class="tab bg-white rounded-2xl shadow p-4 space-y-3">
       <h2 class="text-lg font-semibold">Reporte Welcome Pack (base actualizada)</h2>
       <div class="flex gap-2 flex-wrap">
@@ -62,8 +74,9 @@
       </div>
     </section>
 
+    <!-- Métricas -->
     <section id="tab-metricas" class="tab bg-white rounded-2xl shadow p-4">
-      <h2 class="text-lg font-semibold mb-3">Métricas (resumen)</h2>
+      <h2 class="text-lg font-semibold mb-3">Métricas</h2>
       <div id="met-resumen" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
       <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-gray-50 rounded-xl border p-3">
@@ -84,72 +97,38 @@
         </div>
       </div>
     </section>
-
-    <section id="tab-entregas" class="tab bg-white rounded-2xl shadow p-4">
-      <h2 class="text-lg font-semibold mb-2">Entregas (agrupadas)</h2>
-      <div class="flex gap-2 flex-wrap">
-        <input id="log-buscar" class="border px-3 py-2 rounded-xl flex-1 min-w-[220px]" placeholder="Buscar por receptor/comprador">
-        <button id="log-refresh" class="px-4 py-2 rounded-xl bg-black text-white">Actualizar</button>
-      </div>
-      <div class="table-wrap border rounded-xl mt-2">
-        <table class="min-w-full text-sm">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="px-2 py-1 border-b">Nombre receptor</th>
-              <th class="px-2 py-1 border-b">Rut receptor</th>
-              <th class="px-2 py-1 border-b">Nombre comprador</th>
-              <th class="px-2 py-1 border-b">Rut comprador</th>
-              <th class="px-2 py-1 border-b">Total packs</th>
-              <th class="px-2 py-1 border-b">Detalle por categoría</th>
-            </tr>
-          </thead>
-          <tbody id="log-body"></tbody>
-        </table>
-      </div>
-      <div class="flex items-center justify-between text-sm mt-2">
-        <div id="log-count" class="text-gray-600"></div>
-        <div class="flex gap-2">
-          <button id="log-prev" class="px-3 py-1 rounded border">« Anterior</button>
-          <button id="log-next" class="px-3 py-1 rounded border">Siguiente »</button>
-        </div>
-      </div>
-    </section>
   </main>
 
   <!-- Bottom nav -->
   <nav class="bottom-nav">
     <div class="grid grid-cols-4 gap-2 p-2">
       <button class="px-2 py-2 rounded-xl border" data-tab="registrar" aria-selected="true">📝 Registrar</button>
+      <button class="px-2 py-2 rounded-xl border" data-tab="verabono"  aria-selected="false">👁️ Ver abono</button>
       <button class="px-2 py-2 rounded-xl border" data-tab="reporte"  aria-selected="false">📋 Reporte</button>
       <button class="px-2 py-2 rounded-xl border" data-tab="metricas" aria-selected="false">📊 Métricas</button>
-      <button class="px-2 py-2 rounded-xl border" data-tab="entregas" aria-selected="false">📦 Entregas</button>
     </div>
   </nav>
 
-  <!-- Modal de error + sugerencias -->
+  <!-- Modal simple -->
   <div id="error-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center">
     <div class="absolute inset-0 bg-black/40"></div>
     <div class="relative mx-4 w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
       <h3 class="mb-2 text-lg font-semibold text-red-700">Atención</h3>
       <p id="error-modal-text" class="text-sm text-gray-800">Ocurrió un problema.</p>
-      <div id="rut-sugerencias" class="mt-3 hidden">
-        <h4 class="text-sm font-medium mb-2">¿Quizás buscabas uno de estos?</h4>
-        <div id="rut-sug-list" class="space-y-2"></div>
-      </div>
       <div class="mt-4 flex justify-end">
-        <button id="error-modal-continue" class="px-4 py-2 rounded-xl bg-black text-white text-sm">Continuar con nuevo registro</button>
+        <button id="error-modal-continue" class="px-4 py-2 rounded-xl bg-black text-white text-sm">Cerrar</button>
       </div>
     </div>
   </div>
 
   <script>
-    // ---------- Tabs ----------
+    // Tabs
     const tabsBtns = document.querySelectorAll('.bottom-nav [data-tab]');
     const tabs = {
       registrar: document.getElementById('tab-registrar'),
+      verabono:  document.getElementById('tab-verabono'),
       reporte:   document.getElementById('tab-reporte'),
-      metricas:  document.getElementById('tab-metricas'),
-      entregas:  document.getElementById('tab-entregas')
+      metricas:  document.getElementById('tab-metricas')
     };
     tabsBtns.forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -158,108 +137,88 @@
         Object.values(tabs).forEach(p=>p.classList.remove('active'));
         tabs[btn.dataset.tab].classList.add('active');
 
-        if(btn.dataset.tab==='reporte') loadReporte();
-        if(btn.dataset.tab==='metricas') loadMetricas();
-        if(btn.dataset.tab==='entregas') loadLog();
+        if(btn.dataset.tab === 'reporte')  loadReporte();
+        if(btn.dataset.tab === 'metricas') loadMetricas();
       });
     });
 
-    // ---------- Modal ----------
-    function openErrorModal(text, opciones = []) {
+    // Modal
+    function openErrorModal(text){
       document.getElementById('error-modal-text').textContent = text || 'Ocurrió un problema.';
-      const m = document.getElementById('error-modal');
-      m.classList.remove('hidden'); m.classList.add('flex');
-
-      // sugerencias (si vienen)
-      const sugWrap = document.getElementById('rut-sugerencias');
-      const list = document.getElementById('rut-sug-list');
-      if (opciones && opciones.length) {
-        list.innerHTML = opciones.map(o => `
-          <div class="flex items-center justify-between border rounded-xl p-2">
-            <div class="text-sm">
-              <div class="font-medium">${esc(o.nombre || '-')}</div>
-              <div class="text-gray-600">${esc(o.rut || '')}</div>
-              <div class="text-xs text-gray-500">Comprador: ${esc(o.nombre_comprador||'-')} (${esc(o.rut_comprador||'')})</div>
-            </div>
-            <button class="ml-2 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs" data-fill-rut="${esc(o.rut||'')}">Usar este RUT</button>
-          </div>
-        `).join('');
-        sugWrap.classList.remove('hidden');
-
-        // eventos de “Usar este RUT”
-        list.querySelectorAll('[data-fill-rut]').forEach(b=>{
-          b.addEventListener('click', ()=>{
-            const rut = b.getAttribute('data-fill-rut');
-            // Lo ponemos en el campo receptor para registrar
-            document.getElementById('adm-receptor-rut').value = rut;
-            closeErrorModalAndReset(false); // no full reset para que siga en el flujo
-          });
-        });
-      } else {
-        sugWrap.classList.add('hidden');
-        list.innerHTML = '';
-      }
+      const m = document.getElementById('error-modal'); m.classList.remove('hidden'); m.classList.add('flex');
     }
-    function closeErrorModalAndReset(full = true){
-      const m = document.getElementById('error-modal');
-      m.classList.add('hidden'); m.classList.remove('flex');
-      if(full){
-        document.getElementById('adm-rut').value='';
-        document.getElementById('adm-receptor-rut').value='';
-        document.getElementById('adm-receptor-nombre').value='';
-        document.getElementById('adm-resultado').innerHTML='';
-        document.getElementById('adm-msg').innerHTML='';
-        document.getElementById('adm-form-receptor').classList.add('hidden');
-      }
-    }
-    document.getElementById('error-modal-continue').addEventListener('click', ()=>closeErrorModalAndReset(true));
-    document.querySelector('#error-modal .absolute').addEventListener('click', ()=>closeErrorModalAndReset(true));
-    document.addEventListener('keydown', e=>{
-      if(e.key==='Escape'){
-        const m=document.getElementById('error-modal');
-        if(!m.classList.contains('hidden')) closeErrorModalAndReset(true);
-      }
-    });
+    function closeErrorModal(){ const m=document.getElementById('error-modal'); m.classList.add('hidden'); m.classList.remove('flex'); }
+    document.getElementById('error-modal-continue').addEventListener('click', closeErrorModal);
+    document.querySelector('#error-modal .absolute').addEventListener('click', closeErrorModal);
+    document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const m=document.getElementById('error-modal'); if(!m.classList.contains('hidden')) closeErrorModal() } });
 
-    // ---------- Utils ----------
+    // Utils
     const esc = v => String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 
-    // ---------- Registrar (admin) ----------
+    // ----- Registrar -----
     document.getElementById('adm-buscar').addEventListener('click', adminBuscar);
     document.getElementById('adm-entregar').addEventListener('click', adminRegistrar);
 
     async function adminBuscar(){
       const rut = document.getElementById('adm-rut').value.trim();
-      if(!rut) return;
+      const outDiv = document.getElementById('adm-resultado');
+      const form = document.getElementById('adm-form-receptor');
+      document.getElementById('adm-msg').innerHTML = '';
+      form.classList.add('hidden'); outDiv.innerHTML = '';
+
+      if(!rut) return openErrorModal("Ingresa un RUT para buscar.");
 
       try{
-        const res = await fetch('/.netlify/functions/buscar?rut='+encodeURIComponent(rut), {cache:'no-store'});
+        const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`, {cache:'no-store'});
         const out = await res.json();
-
-        if(out.status === 'NO_BASE'){
-          // sugerencias de RUT similares
-          const sug = await pedirSugerencias(rut);
-          openErrorModal('No se encontró el RUT en la base.', sug);
-          document.getElementById('adm-resultado').innerHTML = '';
-          document.getElementById('adm-form-receptor').classList.add('hidden');
-          return;
-        }
-
-        renderGrupo(out);
-      }catch(e){
-        openErrorModal('Error de red: ' + e.message);
-      }
+        renderGrupo(out, outDiv, { mode: 'edit' });
+        if(out.status === 'PENDIENTE') form.classList.remove('hidden');
+      }catch(e){ openErrorModal('Error de red: '+e.message); }
     }
 
-    function renderGrupo(out){
-      const cont = document.getElementById('adm-resultado');
-      const form = document.getElementById('adm-form-receptor');
-      const msg  = document.getElementById('adm-msg');
+    async function adminRegistrar(){
+      const rutBusqueda = document.getElementById('adm-rut').value.trim();
+      const receptor_rut = document.getElementById('adm-receptor-rut').value.trim();
+      const receptor_nombre = document.getElementById('adm-receptor-nombre').value.trim();
+      if(!rutBusqueda || !receptor_rut || !receptor_nombre) return openErrorModal('Completa todos los campos.');
+      try{
+        const r = await fetch('/.netlify/functions/entregar', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ rut_busqueda: rutBusqueda, receptor_rut, receptor_nombre })
+        });
+        const out = await r.json();
+        if(out.ok){
+          document.getElementById('adm-msg').innerHTML = `<div class="p-2 bg-green-50 text-green-700 rounded">Entrega registrada.</div>`;
+          await adminBuscar(); // refresca estado a YA_ENTREGADO
+          document.getElementById('adm-form-receptor').classList.add('hidden');
+        }else{
+          openErrorModal(out.error || 'Error al registrar');
+        }
+      }catch(e){ openErrorModal('Error de red: '+e.message); }
+    }
 
-      msg.innerHTML = '';
+    // ----- Ver abono (solo lectura) -----
+    document.getElementById('ver-buscar').addEventListener('click', async ()=>{
+      const rut = document.getElementById('ver-rut').value.trim();
+      const outDiv = document.getElementById('ver-resultado');
+      outDiv.innerHTML = '';
+      if(!rut) return openErrorModal("Ingresa un RUT para ver.");
+      try{
+        const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`, {cache:'no-store'});
+        const out = await res.json();
+        renderGrupo(out, outDiv, { mode: 'view' });
+      }catch(e){ openErrorModal('Error de red: '+e.message); }
+    });
+
+    // ----- Render de grupo (compartido) -----
+    function renderGrupo(out, container, opts={mode:'view'}){
+      const { mode } = opts;
+      container.innerHTML = '';
+      document.getElementById('adm-form-receptor')?.classList.add('hidden');
+
       if(!out || !out.grupo){
-        cont.innerHTML = '<div class="p-2 bg-red-50 text-red-700 rounded">Sin datos para mostrar.</div>';
-        form.classList.add('hidden');
+        if(out?.status === 'NO_BASE') container.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded">No se encontró el RUT en la base.</div>`;
+        else container.innerHTML = `<div class="p-2 bg-red-50 text-red-700 rounded">Sin datos para mostrar.</div>`;
         return;
       }
       const g = out.grupo;
@@ -268,10 +227,14 @@
       },{});
       const resStr = Object.entries(resumen).map(([k,v])=>`${v} - ${k}`).join(' · ') || '-';
 
-      cont.innerHTML = `
+      const estadoBadge = out.status === 'YA_ENTREGADO'
+        ? `<span class="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-medium">YA ENTREGADO</span>`
+        : `<span class="inline-block px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-medium">PENDIENTE</span>`;
+
+      container.innerHTML = `
         <div class="space-y-2">
-          <div class="p-3 border rounded-xl bg-gray-50">
-            <div><b>Estado:</b> ${esc(out.status)}</div>
+          <div class="p-3 border rounded-xl bg-gray-50 space-y-1">
+            <div class="flex items-center gap-2"><b>Estado:</b> ${estadoBadge}</div>
             <div><b>Comprador:</b> ${esc(g?.comprador?.nombre_comprador||'-')} (${esc(g?.comprador?.rut_comprador||'-')})</div>
             <div><b>Resumen packs:</b> ${esc(resStr)}</div>
           </div>
@@ -292,66 +255,28 @@
               </tbody>
             </table>
           </div>
-        </div>`;
-
-      if(out.status === 'PENDIENTE') form.classList.remove('hidden');
-      else { form.classList.add('hidden'); msg.innerHTML = `<div class="p-2 bg-green-50 text-green-700 rounded">Grupo ya retiró sus packs.</div>`; }
+          ${mode==='edit' && out.status==='YA_ENTREGADO'
+            ? `<div class="p-2 bg-green-50 text-green-700 rounded">Este grupo ya retiró sus packs. No es posible registrar otra entrega.</div>`
+            : ``}
+        </div>
+      `;
     }
 
-    async function adminRegistrar(){
-      const rutBusqueda = document.getElementById('adm-rut').value.trim();
-      const receptor_rut = document.getElementById('adm-receptor-rut').value.trim();
-      const receptor_nombre = document.getElementById('adm-receptor-nombre').value.trim();
-      if(!rutBusqueda || !receptor_rut || !receptor_nombre) return;
-      try{
-        const res = await fetch('/.netlify/functions/entregar',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({rut_busqueda:rutBusqueda,receptor_rut,receptor_nombre})
-        });
-        const out = await res.json();
-        if(out.ok){
-          document.getElementById('adm-msg').innerHTML = `<div class="p-2 bg-green-50 text-green-700 rounded">Entrega registrada.</div>`;
-          // refresco de grupo para ver estado actualizado
-          await adminBuscar();
-        }else{
-          // Si es “no corresponde”, pedimos sugerencias para el receptor
-          if(/no\s*corresponde/i.test(out.error||"")){
-            const sug = await pedirSugerencias(receptor_rut);
-            openErrorModal("El RUT ingresado no corresponde a este abono.", sug);
-          }else{
-            openErrorModal(out.error || "Error al registrar");
-          }
-        }
-      }catch(e){
-        openErrorModal('Error de red: ' + e.message);
-      }
-    }
-
-    // ---------- Sugerencias ----------
-    async function pedirSugerencias(rut) {
-      try{
-        const res = await fetch('/.netlify/functions/rut_sugerencias?rut='+encodeURIComponent(rut), {cache:'no-store'});
-        const data = await res.json();
-        if(data && data.ok) return data.sugerencias || [];
-      }catch(e){ /* silencioso */ }
-      return [];
-    }
-
-    // ---------- Reporte ----------
-    let REP = []; let repPage = 1; const repSize = 50;
+    // ----- Reporte -----
+    let REP=[]; let repPage=1; const repSize=50;
     async function loadReporte(){
       document.getElementById('rep-status').textContent = 'Cargando…';
-      const r = await fetch('/.netlify/functions/export_base',{cache:'no-store'});
-      const data = await r.json();
-      REP = Array.isArray(data) ? data : [];
-      repPage = 1;
-      renderReporte(true);
-      document.getElementById('rep-status').textContent = '';
+      try{
+        const r = await fetch('/.netlify/functions/export_base',{cache:'no-store'});
+        const data = await r.json();
+        REP = Array.isArray(data) ? data : [];
+        repPage=1; renderReporte(true);
+        document.getElementById('rep-status').textContent='';
+      }catch{ document.getElementById('rep-status').textContent='No se pudo cargar.'; }
     }
     function renderReporte(reset){
-      if(reset) repPage = 1;
-      const q = (document.getElementById('rep-buscar').value || '').toLowerCase();
+      if(reset) repPage=1;
+      const q = (document.getElementById('rep-buscar').value||'').toLowerCase();
       const head = document.getElementById('rep-head');
       const body = document.getElementById('rep-body');
       const count= document.getElementById('rep-count');
@@ -365,27 +290,25 @@
       head.innerHTML = `<tr>${cols.map(c=>`<th class="px-2 py-1 border-b">${c.label}</th>`).join('')}</tr>`;
 
       const filtered = REP.filter(r =>
-        !q || (String(r.rut||'').includes(q)) || (String(r.nombre||'').toLowerCase().includes(q)) ||
-        (String(r.tribuna||'').toLowerCase().includes(q)) || (String(r.sector||'').toLowerCase().includes(q))
+        !q || String(r.rut||'').includes(q) ||
+               String(r.nombre||'').toLowerCase().includes(q) ||
+               String(r.tribuna||'').toLowerCase().includes(q) ||
+               String(r.sector||'').toLowerCase().includes(q)
       );
-      const start = (repPage-1)*repSize;
-      const pageRows = filtered.slice(start, start+repSize);
-
-      body.innerHTML = pageRows.map(r=>`
-        <tr>${cols.map(c=>`<td class="px-2 py-1 border-b">${esc(r[c.key]||'')}</td>`).join('')}</tr>
-      `).join('');
+      const start=(repPage-1)*repSize;
+      const pageRows = filtered.slice(start,start+repSize);
+      body.innerHTML = pageRows.map(r=>`<tr>${cols.map(c=>`<td class="px-2 py-1 border-b">${esc(r[c.key]||'')}</td>`).join('')}</tr>`).join('');
       count.textContent = `Mostrando ${pageRows.length} de ${filtered.length} registros · Página ${repPage}`;
-
       document.getElementById('rep-prev').onclick = ()=>{ if(repPage>1){ repPage--; renderReporte(); } };
       document.getElementById('rep-next').onclick = ()=>{ if(repPage*repSize<filtered.length){ repPage++; renderReporte(); } };
       document.getElementById('rep-refresh').onclick = loadReporte;
       document.getElementById('rep-buscar').oninput = ()=> renderReporte(true);
     }
 
-    // ---------- Métricas ----------
+    // ----- Métricas -----
     async function loadMetricas(){
       const res = await fetch('/.netlify/functions/metrics',{cache:'no-store'});
-      const data = await res.json();
+      const data = await res.json().catch(()=>({}));
       document.getElementById('met-resumen').innerHTML = `
         <div class="bg-white rounded-xl border p-3"><div class="text-sm text-gray-500">Total abonados</div><div class="text-2xl font-semibold">${data.total||0}</div></div>
         <div class="bg-white rounded-xl border p-3"><div class="text-sm text-gray-500">Entregados</div><div class="text-2xl font-semibold">${data.entregados||0}</div></div>
@@ -398,51 +321,6 @@
         <tr><td class="px-2 py-1 border-b">${esc(t.tribuna||'-')}</td><td class="px-2 py-1 border-b">${esc(t.entregados||0)}</td><td class="px-2 py-1 border-b">${esc(t.total||0)}</td><td class="px-2 py-1 border-b">${esc(t.porc||0)}%</td></tr>
       `).join('');
     }
-
-    // ---------- Log ----------
-    let LOG=[]; let logPage=1; const logSize=50;
-    async function loadLog(){
-      const r = await fetch('/.netlify/functions/get_log',{cache:'no-store'});
-      LOG = await r.json(); logPage=1; renderLog(true);
-      document.getElementById('log-refresh').onclick = loadLog;
-      document.getElementById('log-buscar').oninput = ()=> renderLog(true);
-      document.getElementById('log-prev').onclick = ()=>{ if(logPage>1){ logPage--; renderLog(); } };
-      document.getElementById('log-next').onclick = ()=>{
-        const rows = filterLog();
-        if(logPage*logSize<rows.length){ logPage++; renderLog(); }
-      };
-    }
-    function filterLog(){
-      const q=(document.getElementById('log-buscar').value||'').toLowerCase();
-      return LOG.filter(r =>
-        !q || String(r.nombre_receptor||'').toLowerCase().includes(q) ||
-              String(r.rut_receptor||'').includes(q) ||
-              String(r.nombre_comprador||'').toLowerCase().includes(q) ||
-              String(r.rut_comprador||'').includes(q) ||
-              String(r.detalle_texto||'').toLowerCase().includes(q)
-      );
-    }
-    function renderLog(reset){
-      if(reset) logPage=1;
-      const rows = filterLog();
-      const start=(logPage-1)*logSize, page=rows.slice(start,start+logSize);
-      document.getElementById('log-body').innerHTML = page.map(r=>{
-        const det = r.detalle_texto || (r.detalle||[]).map(d=>`${d.cantidad} ${d.cat}`).join(' · ');
-        return `<tr>
-          <td class="px-2 py-1 border-b">${esc(r.nombre_receptor||'')}</td>
-          <td class="px-2 py-1 border-b">${esc(r.rut_receptor||'')}</td>
-          <td class="px-2 py-1 border-b">${esc(r.nombre_comprador||'')}</td>
-          <td class="px-2 py-1 border-b">${esc(r.rut_comprador||'')}</td>
-          <td class="px-2 py-1 border-b">${esc(r.total_packs||0)}</td>
-          <td class="px-2 py-1 border-b">${esc(det)}</td>
-        </tr>`;
-      }).join('');
-      document.getElementById('log-count').textContent =
-        `Mostrando ${page.length} de ${rows.length} entregas · Página ${logPage}`;
-    }
-
-    // Carga inicial
-    // show “Registrar” activo por defecto (ya está)
   </script>
 </body>
 </html>
