@@ -1,9 +1,16 @@
 // netlify/functions/entregar.js
+// Registra la ENTREGA TOTAL del grupo, guardando en Netlify Blobs y bloqueando duplicados
+
 import { getStore } from '@netlify/blobs';
 
-const store = getStore({ name: 'welcome-packs' });
+// === Configuración de Blobs con credenciales manuales ===
+const store = getStore({
+  name: 'welcome-packs',
+  siteID: process.env.BLOBS_SITE_ID || process.env.SITE_ID,
+  token: process.env.BLOBS_TOKEN
+});
 
-// Helpers
+// ---------- Helpers ----------
 const norm = s => (s || '').toUpperCase().replace(/[.\-]/g, '').trim();
 const noAcc = s => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '');
 const normCat = c => {
@@ -43,8 +50,9 @@ const mapBaseRow = (r) => ({
   sector: r.sector || r['Sector'] || '',
 });
 
+// ---------- Lecturas/Escrituras ----------
 async function readBase() {
-  const url = process.env.BASE_CSV_URL;
+  const url = process.env.BASE_CSV_URL; // CSV final (OneDrive con download=1)
   if (!url) throw new Error('Falta BASE_CSV_URL');
   const txt = await (await fetch(url)).text();
   const { rows } = parseCSV(txt);
@@ -67,6 +75,7 @@ async function writeLog(rows) {
   await store.set('registro_entregas.csv', toCSV(headers, rows));
 }
 
+// ---------- Handler ----------
 export async function handler(event) {
   try {
     if (event.httpMethod !== 'POST')
@@ -79,17 +88,22 @@ export async function handler(event) {
     if (!rutQ || !receptor_rut || !receptor_nombre)
       return { statusCode: 400, body: JSON.stringify({ ok:false, error:'Datos incompletos' }) };
 
+    // 1) Localizar compra/grupo
     const base = await readBase();
     const hit = base.find(r => r.rut === rutQ || r.rut_comprador === rutQ);
     if (!hit) return { statusCode: 200, body: JSON.stringify({ ok:false, error:'NO_BASE' }) };
 
     const miembros = base.filter(r => r.rut_comprador === hit.rut_comprador);
 
+    // 2) Bloquear duplicados
     const log = await readLog();
-    const entregadas = log.filter(l => norm(l.rut_comprador) === hit.rut_comprador && (l.retirado || '').toUpperCase() === 'Y').length;
+    const entregadas = log.filter(
+      l => norm(l.rut_comprador) === hit.rut_comprador && (l.retirado || '').toUpperCase() === 'Y'
+    ).length;
     if (entregadas >= miembros.length)
       return { statusCode: 200, body: JSON.stringify({ ok:false, error:'YA_ENTREGADO' }) };
 
+    // 3) Registrar ENTREGAR TODO (una fila por persona del grupo)
     const ts = new Date().toISOString();
     const nuevas = miembros.map(m => ({
       rut: m.rut,
