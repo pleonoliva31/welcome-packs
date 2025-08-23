@@ -3,7 +3,7 @@
 
 import { getStore } from '@netlify/blobs';
 
-// === Configuración de Blobs con credenciales manuales ===
+// === Blobs con credenciales manuales (Plan B) ===
 const store = getStore({
   name: 'welcome-packs',
   siteID: process.env.BLOBS_SITE_ID || process.env.SITE_ID,
@@ -12,27 +12,59 @@ const store = getStore({
 
 // ---------- Helpers ----------
 const norm = s => (s || '').toUpperCase().replace(/[.\-]/g, '').trim();
-const noAcc = s => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '');
+const sinAcentos = s => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '');
 const normCat = c => {
-  const x = noAcc(String(c || '').toUpperCase().trim());
+  const x = sinAcentos(String(c || '').toUpperCase().trim());
   if (['ESTANDAR', 'NINO', 'PREMIUM'].includes(x)) return x;
   if (/NIN/.test(x)) return 'NINO';
   if (/PREM/.test(x)) return 'PREMIUM';
   return 'ESTANDAR';
 };
-const parseCSV = (text) => {
-  const lines = text.replace(/\r/g, '').split('\n').filter(Boolean);
+
+function parseCSV(text) {
+  const clean = text.replace(/^\uFEFF/, '').replace(/\r/g, '');
+  const lines = clean.split('\n').filter(Boolean);
   if (!lines.length) return { headers: [], rows: [] };
-  const delim = (lines[0].includes(';') && !lines[0].includes(',')) ? ';' : ',';
-  const headers = lines[0].split(delim).map(h => h.trim());
+  const cand = [',', ';'];
+  let bestDelim = ',', bestCols = 0;
+  for (const d of cand) {
+    const cols = lines[0].split(d).length;
+    if (cols > bestCols) { bestCols = cols; bestDelim = d; }
+  }
+  const headers = lines[0].split(bestDelim).map(h => h.replace(/\uFEFF/g, '').trim());
   const rows = lines.slice(1).map(line => {
-    const cells = line.split(delim);
+    const cells = line.split(bestDelim);
     const o = {};
     headers.forEach((h, i) => o[h] = (cells[i] ?? '').trim());
     return o;
   });
   return { headers, rows };
-};
+}
+
+const normKey = k => sinAcentos(String(k || '')).toLowerCase().replace(/\uFEFF/g, '').replace(/[\s_]/g, '');
+function buildIndex(row) {
+  const idx = {};
+  for (const k of Object.keys(row)) idx[normKey(k)] = k;
+  return idx;
+}
+function pick(row, idx, ...names) {
+  for (const n of names) { const key = idx[normKey(n)]; if (key && row[key] !== undefined && row[key] !== '') return row[key]; }
+  return '';
+}
+
+function mapBaseRow(r) {
+  const idx = buildIndex(r);
+  return {
+    rut:          norm(pick(r, idx, 'rut', 'RUT', 'Rut')),
+    nombre:       pick(r, idx, 'nombre', 'Nombre Completo', 'Nombre'),
+    categoria:    normCat(pick(r, idx, 'categoria', 'Welcome Pack', 'Categoria Pack', 'Pack')),
+    rut_comprador:norm(pick(r, idx, 'rut_comprador', 'Rut Comprador', 'RUT COMPRADOR', 'RutComprador')),
+    nombre_comprador: pick(r, idx, 'nombre_comprador', 'Nombre Comprador', 'NombreComprador', 'Comprador'),
+    tribuna:      pick(r, idx, 'tribuna', 'Tribuna'),
+    sector:       pick(r, idx, 'sector', 'Sector')
+  };
+}
+
 const toCSV = (headers, rows) => {
   const esc = v => {
     const s = String(v ?? '');
@@ -40,23 +72,14 @@ const toCSV = (headers, rows) => {
   };
   return [headers.join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(','))).join('\n');
 };
-const mapBaseRow = (r) => ({
-  rut: norm(r.rut || r['Rut']),
-  nombre: r.nombre || r['Nombre Completo'] || '',
-  categoria: normCat(r.categoria || r['Welcome Pack']),
-  rut_comprador: norm(r.rut_comprador || r['Rut Comprador']),
-  nombre_comprador: r.nombre_comprador || r['Nombre Comprador'] || '',
-  tribuna: r.tribuna || r['Tribuna'] || '',
-  sector: r.sector || r['Sector'] || '',
-});
 
 // ---------- Lecturas/Escrituras ----------
 async function readBase() {
-  const url = process.env.BASE_CSV_URL; // CSV final (OneDrive con download=1)
+  const url = process.env.BASE_CSV_URL; // CSV final (OneDrive download=1 o GitHub raw)
   if (!url) throw new Error('Falta BASE_CSV_URL');
   const txt = await (await fetch(url)).text();
   const { rows } = parseCSV(txt);
-  return rows.map(mapBaseRow);
+  return rows.map(mapBaseRow).filter(r => r.rut || r.rut_comprador);
 }
 async function readLog() {
   const txt = (await store.get('registro_entregas.csv')) || '';
