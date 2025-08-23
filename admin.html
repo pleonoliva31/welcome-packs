@@ -9,14 +9,10 @@
     .tab-btn[aria-selected="true"] { background: #111827; color: white; }
     .table-wrap { overflow: auto; }
     th, td { white-space: nowrap; }
-
-    /* Controles responsivos */
     .controls { display:flex; flex-wrap:wrap; gap:.5rem; }
     .controls .grow-item { flex:1 1 220px; min-width:0; }
     .controls .shrink-item { flex:0 0 auto; }
     @media (max-width:640px){ .controls .shrink-item{ width:100%; } }
-
-    /* Barra de tabs abajo */
     body { padding-bottom: 72px; }
     .bottom-tabs {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
@@ -33,45 +29,32 @@
 <body class="bg-gray-50 text-gray-900">
   <div class="max-w-7xl mx-auto p-4 space-y-4">
 
-    <!-- Header -->
     <header class="flex items-center justify-between">
       <h1 class="text-lg md:text-xl font-semibold">Panel de Supervisión · Welcome Pack</h1>
-      <a href="/" class="text-sm underline">← Ir a vista de voluntarios</a>
+      <a href="/" class="text-sm underline">← Voluntarios</a>
     </header>
 
-    <!-- 1) MÉTRICAS -->
+    <!-- 1) Métricas -->
     <section id="tab-metrics" role="tabpanel" class="bg-white rounded-2xl shadow p-4 space-y-4">
       <div id="metrics-summary" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
-
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-gray-50 rounded-xl border p-3">
           <h3 class="font-medium mb-2">Por categoría</h3>
           <div class="table-wrap">
             <table class="min-w-full text-sm">
               <thead class="text-left bg-white">
-                <tr>
-                  <th class="px-2 py-1 border-b">Categoría</th>
-                  <th class="px-2 py-1 border-b">Entregados</th>
-                  <th class="px-2 py-1 border-b">Total</th>
-                  <th class="px-2 py-1 border-b">% Entrega</th>
-                </tr>
+                <tr><th class="px-2 py-1 border-b">Categoría</th><th class="px-2 py-1 border-b">Entregados</th><th class="px-2 py-1 border-b">Total</th><th class="px-2 py-1 border-b">% Entrega</th></tr>
               </thead>
               <tbody id="metrics-cats"></tbody>
             </table>
           </div>
         </div>
-
         <div class="bg-gray-50 rounded-xl border p-3">
           <h3 class="font-medium mb-2">Por tribuna/sector</h3>
           <div class="table-wrap">
             <table class="min-w-full text-sm">
               <thead class="text-left bg-white">
-                <tr>
-                  <th class="px-2 py-1 border-b">Tribuna</th>
-                  <th class="px-2 py-1 border-b">Entregados</th>
-                  <th class="px-2 py-1 border-b">Total</th>
-                  <th class="px-2 py-1 border-b">% Entrega</th>
-                </tr>
+                <tr><th class="px-2 py-1 border-b">Tribuna</th><th class="px-2 py-1 border-b">Entregados</th><th class="px-2 py-1 border-b">Total</th><th class="px-2 py-1 border-b">% Entrega</th></tr>
               </thead>
               <tbody id="metrics-tribs"></tbody>
             </table>
@@ -80,7 +63,7 @@
       </div>
     </section>
 
-    <!-- 2) REPORTE -->
+    <!-- 2) Reporte -->
     <section id="tab-reporte" role="tabpanel" class="hidden bg-white rounded-2xl shadow p-4 space-y-3">
       <div class="flex items-start justify-between gap-2 flex-wrap">
         <h2 class="text-lg font-medium">Reporte Welcome Pack (base actualizada)</h2>
@@ -89,16 +72,13 @@
           <button id="reporte-refresh" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Actualizar</button>
         </div>
       </div>
-
       <div id="reporte-status" class="text-sm text-gray-600">Cargando…</div>
-
       <div class="table-wrap border rounded-xl">
         <table class="min-w-full text-sm">
           <thead class="text-left bg-gray-100" id="reporte-head"></thead>
           <tbody id="reporte-body"></tbody>
         </table>
       </div>
-
       <div class="flex items-center justify-between text-sm">
         <div id="reporte-count" class="text-gray-600"></div>
         <div class="flex gap-2">
@@ -108,7 +88,7 @@
       </div>
     </section>
 
-    <!-- 3) ENTREGAS (AGRUPADAS) -->
+    <!-- 3) Entregas (agrupadas) -->
     <section id="tab-log" role="tabpanel" class="hidden bg-white rounded-2xl shadow p-4 space-y-3">
       <div class="flex items-start justify-between gap-2 flex-wrap">
         <h2 class="text-lg font-medium">Entregas registradas (log)</h2>
@@ -141,17 +121,14 @@
       </div>
     </section>
 
-    <!-- 4) REGISTRAR ENTREGA -->
+    <!-- 4) Registrar entrega -->
     <section id="tab-entrega" role="tabpanel" class="hidden bg-white rounded-2xl shadow p-4 space-y-4">
       <h2 class="text-lg font-medium">Registrar entrega (vista administrador)</h2>
-
       <div class="controls w-full sm:w-auto">
         <input id="adm-rut" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Ingresa RUT (con o sin guion)">
         <button id="adm-buscar" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Buscar</button>
       </div>
-
       <div id="adm-resultado" class="space-y-3"></div>
-
       <div id="adm-form-receptor" class="hidden bg-gray-50 border rounded-xl p-3 space-y-2">
         <div class="controls w-full sm:w-auto">
           <input id="adm-receptor-rut" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="RUT de quien retira">
@@ -160,7 +137,6 @@
         </div>
         <p class="text-xs text-gray-600">Solo puede retirar alguien asociado al mismo abono.</p>
       </div>
-
       <div id="adm-msg" class="text-sm"></div>
     </section>
   </div>
@@ -175,7 +151,7 @@
     </div>
   </nav>
 
-  <!-- Modal error -->
+  <!-- Modal de error receptor fuera del grupo -->
   <div id="error-modal" class="fixed inset-0 z-50 hidden items-center justify-center">
     <div class="absolute inset-0 bg-black/40"></div>
     <div class="relative mx-4 w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
@@ -192,7 +168,7 @@
   </div>
 
   <script>
-    /* -------- Tabs -------- */
+    /* Tabs */
     const tabs = document.querySelectorAll('.tab-btn');
     const panels = {
       'tab-metrics': document.getElementById('tab-metrics'),
@@ -213,7 +189,7 @@
       });
     });
 
-    /* -------- Métricas -------- */
+    /* Métricas */
     async function loadMetrics(){
       const summary = document.getElementById('metrics-summary');
       const catsBody = document.getElementById('metrics-cats');
@@ -238,17 +214,15 @@
       }
     }
 
-    /* -------- Utilidades tabla -------- */
+    /* Utilidades tabla */
     function paginar(data, page, size){ const start=(page-1)*size; return data.slice(start, start+size); }
     function filtrarTexto(data, q, campos){
       const s=(q||'').toLowerCase(); if(!s) return data;
       return data.filter(row=> campos.some(c=> String(row[c]||'').toLowerCase().includes(s)));
     }
-    function escapeHtml(v){
-      return String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
-    }
+    function escapeHtml(v){ return String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
-    /* -------- Reporte -------- */
+    /* Reporte */
     let REP_CACHE = []; let repPage = 1; const repSize = 50;
     async function initReporte(){
       if(!initReporte._wired){
@@ -264,7 +238,7 @@
       if(REP_CACHE.length===0) await loadReporte();
       renderReporte(true);
     }
-    async function loadReporte(force=false){
+    async function loadReporte(){
       const status = document.getElementById('reporte-status');
       status.textContent = 'Cargando…';
       try{
@@ -314,7 +288,7 @@
       status.textContent = '';
     }
 
-    /* -------- Log (agrupado por comprador) -------- */
+    /* Log (agrupado por comprador) */
     let LOG_CACHE = []; let logPage = 1; const logSize = 50;
     async function initLog(){
       if(LOG_CACHE.length===0) await loadLog();
@@ -353,18 +327,23 @@
         `Mostrando ${pageRows.length} de ${rows.length} entregas · Página ${logPage}`;
     }
 
-    /* -------- Modal error -------- */
+    /* Modal error (admin) */
     function openErrorModal(texto){
-      document.getElementById('error-modal-text').textContent = texto || 'El RUT ingresado no corresponde a este abono.';
-      const m = document.getElementById('error-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+      document.getElementById('error-modal-text').textContent =
+        texto || 'El RUT ingresado no corresponde a este abono.';
+      const m = document.getElementById('error-modal');
+      m.classList.remove('hidden'); m.classList.add('flex');
     }
     function closeErrorModalAndReset(){
-      const m = document.getElementById('error-modal'); m.classList.add('hidden'); m.classList.remove('flex');
-      document.getElementById('adm-rut').value = '';
+      const m = document.getElementById('error-modal');
+      m.classList.add('hidden'); m.classList.remove('flex');
+      // Reset de Registrar
+      const rutInput = document.getElementById('adm-rut');
       document.getElementById('adm-resultado').innerHTML = '';
       document.getElementById('adm-form-receptor').classList.add('hidden');
       document.getElementById('adm-msg').textContent = '';
-      document.getElementById('adm-rut').focus();
+      rutInput.value = '';
+      rutInput.focus();
     }
     document.addEventListener('DOMContentLoaded', ()=>{
       const btn = document.getElementById('error-modal-continue');
@@ -377,7 +356,7 @@
       });
     });
 
-    /* -------- Registrar entrega (admin) -------- */
+    /* Registrar entrega (admin) */
     let ADM_STATE = { rutBuscado: '', grupo: null };
     function renderAdminResultado(payload){
       const cont = document.getElementById('adm-resultado');
@@ -391,9 +370,7 @@
       }
 
       const { status, rut_buscado, nombre_buscado, grupo } = payload;
-      const resumen = (grupo?.miembros||[]).reduce((acc,m)=>{
-        const k = (m.categoria||'').toUpperCase(); acc[k]=(acc[k]||0)+1; return acc;
-      }, {});
+      const resumen = (grupo?.miembros||[]).reduce((acc,m)=>{ const k=(m.categoria||'').toUpperCase(); acc[k]=(acc[k]||0)+1; return acc; }, {});
       const resumenStr = Object.entries(resumen).map(([k,v])=>`${v} - ${k}`).join(' · ') || '-';
 
       cont.innerHTML = `
@@ -462,7 +439,8 @@
         return;
       }
       const res = await fetch('/.netlify/functions/entregar', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ rut_busqueda: ADM_STATE.rutBuscado, receptor_rut, receptor_nombre })
       });
       const out = await res.json();
@@ -471,7 +449,7 @@
         await adminBuscar();
       }else{
         const texto = out.error || 'Error al registrar entrega';
-        if(/no corresponde/i.test(texto) || /no\s+corresponde\s+al\s+abono/i.test(texto)){
+        if(/no\s*corresponde/i.test(texto) && /abono/i.test(texto)){
           openErrorModal('El RUT ingresado no corresponde a este abono.');
         }else{
           msg.innerHTML = `<div class="p-2 rounded bg-red-50 text-red-700">${texto}</div>`;
@@ -483,6 +461,18 @@
       document.getElementById('adm-buscar').onclick = adminBuscar;
       document.getElementById('adm-entregar').onclick = adminEntregar;
     }
+
+    /* Modal: enlazar botones */
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const btn = document.getElementById('error-modal-continue');
+      if(btn) btn.addEventListener('click', closeErrorModalAndReset);
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'Escape'){
+          const m = document.getElementById('error-modal');
+          if(m && !m.classList.contains('hidden')) closeErrorModalAndReset();
+        }
+      });
+    });
 
     /* Carga por defecto */
     loadMetrics();
