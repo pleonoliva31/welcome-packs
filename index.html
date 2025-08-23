@@ -1,144 +1,233 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Registro Welcome Packs</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  </head>
-  <body class="bg-gray-50">
-    <div id="root"></div>
-    <script type="text/babel">
-      const { useState } = React;
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Welcome Pack · Registro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .table-wrap { overflow:auto; }
+    th, td { white-space: nowrap; }
+    .controls { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .controls .grow-item { flex:1 1 220px; min-width:0; }
+    .controls .shrink-item { flex:0 0 auto; }
+    @media (max-width:640px){ .controls .shrink-item{ width:100%; } }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-3xl mx-auto p-4 space-y-4">
+    <header class="flex items-center justify-between">
+      <h1 class="text-lg md:text-xl font-semibold">Registro de entrega · Welcome Pack</h1>
+      <a href="/admin" class="text-sm underline">Admin</a>
+    </header>
 
-      // --- RUT helpers ---
-      const norm = s => (s||"").toUpperCase().replace(/[.-]/g,"").trim();
-      const dvRut = n => { let s=0,m=2; for(let i=n.length-1;i>=0;i--){ s+=parseInt(n[i],10)*m; m=m===7?2:m+1;} const r=11-(s%11); return r===11?"0":r===10?"K":String(r); };
-      const rutValido = r => { const raw=norm(r); if(!/^\d{6,9}[0-9K]$/.test(raw)) return false; return dvRut(raw.slice(0,-1))===raw.slice(-1); };
+    <!-- Paso 1: Buscar grupo -->
+    <section class="bg-white rounded-2xl shadow p-4 space-y-3">
+      <h2 class="text-base font-medium">1) Buscar abono</h2>
+      <div class="controls">
+        <input id="rut-busqueda" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Ingresa RUT abonado o comprador (con o sin guion)">
+        <button id="btn-buscar" class="shrink-item px-3 py-2 rounded-xl bg-black text-white text-sm">Buscar</button>
+      </div>
+      <div id="resultado-busqueda" class="text-sm"></div>
+    </section>
 
-      function App(){
-        const [rut, setRut] = useState("");
-        const [estado, setEstado] = useState(null); // NO_BASE | PENDIENTE | YA_ENTREGADO
-        const [grupo, setGrupo] = useState(null);
-        const [receptorRut, setReceptorRut] = useState("");
-        const [receptorNombre, setReceptorNombre] = useState("");
-        const [busy, setBusy] = useState(false);
-        const [msg, setMsg] = useState("");
+    <!-- Paso 2: Registrar entrega -->
+    <section id="seccion-entrega" class="bg-white rounded-2xl shadow p-4 space-y-3 hidden">
+      <h2 class="text-base font-medium">2) Confirmar entrega</h2>
+      <p class="text-sm text-gray-700">Completa los datos de quien retira. Debe pertenecer al mismo abono.</p>
+      <div class="controls">
+        <input id="receptor-rut" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="RUT de quien retira">
+        <input id="receptor-nombre" class="grow-item px-3 py-2 rounded-xl border text-sm" placeholder="Nombre de quien retira">
+        <button id="btn-entregar" class="shrink-item px-3 py-2 rounded-xl bg-green-600 text-white text-sm">Entregar TODO</button>
+      </div>
+      <div id="msg-entrega" class="text-sm"></div>
+    </section>
+  </div>
 
-        async function buscar(){
-          setMsg(""); setBusy(true);
-          try{
-            const q = norm(rut);
-            const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(q)}`, {cache:"no-store"});
-            const data = await res.json();
-            setEstado(data.status); setGrupo(data.grupo || null);
-          }catch(e){ setMsg("Error consultando el servidor."); }
-          finally{ setBusy(false); }
+  <!-- Modal: receptor fuera del grupo -->
+  <div id="error-modal" class="fixed inset-0 z-50 hidden items-center justify-center">
+    <div class="absolute inset-0 bg-black/40"></div>
+    <div class="relative mx-4 w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+      <h3 class="mb-2 text-lg font-semibold text-red-700">No corresponde al abono</h3>
+      <p id="error-modal-text" class="text-sm text-gray-700">
+        El RUT ingresado no corresponde a este abono.
+      </p>
+      <div class="mt-4 flex justify-end">
+        <button id="error-modal-continue" class="px-4 py-2 rounded-xl bg-black text-white text-sm">
+          Continuar con nuevo registro
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -------- Utilidades --------
+    const normRut = s => (s||'').toUpperCase().replace(/[.\-]/g,'').trim();
+    function escapeHtml(v){
+      return String(v ?? '').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
+    // -------- Modal --------
+    function openErrorModal(texto){
+      document.getElementById('error-modal-text').textContent = texto || 'El RUT ingresado no corresponde a este abono.';
+      const m = document.getElementById('error-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+    }
+    function closeErrorModalAndReset(){
+      const m = document.getElementById('error-modal'); m.classList.add('hidden'); m.classList.remove('flex');
+      // Resetea todo para un nuevo registro
+      document.getElementById('rut-busqueda').value = '';
+      document.getElementById('resultado-busqueda').innerHTML = '';
+      document.getElementById('seccion-entrega').classList.add('hidden');
+      document.getElementById('receptor-rut').value = '';
+      document.getElementById('receptor-nombre').value = '';
+      document.getElementById('msg-entrega').textContent = '';
+      document.getElementById('rut-busqueda').focus();
+    }
+    document.addEventListener('DOMContentLoaded', ()=>{
+      document.getElementById('error-modal-continue').addEventListener('click', closeErrorModalAndReset);
+      document.addEventListener('keydown',(e)=>{
+        if(e.key==='Escape'){
+          const m=document.getElementById('error-modal');
+          if(!m.classList.contains('hidden')) closeErrorModalAndReset();
+        }
+      });
+    });
+
+    // -------- Estado simple --------
+    let STATE = { rutBuscadoRaw:'', rutBuscado:'', grupo:null };
+
+    // -------- Buscar grupo --------
+    document.getElementById('btn-buscar').addEventListener('click', buscar);
+    document.getElementById('rut-busqueda').addEventListener('keydown', e=>{ if(e.key==='Enter') buscar(); });
+
+    async function buscar(){
+      const input = document.getElementById('rut-busqueda');
+      const rutRaw = input.value.trim();
+      if(!rutRaw){ input.focus(); return; }
+
+      const resBox = document.getElementById('resultado-busqueda');
+      const entregaSec = document.getElementById('seccion-entrega');
+      const msgEnt = document.getElementById('msg-entrega');
+
+      resBox.innerHTML = 'Buscando…';
+      entregaSec.classList.add('hidden');
+      msgEnt.textContent = '';
+
+      try{
+        const url = '/.netlify/functions/buscar?rut='+encodeURIComponent(rutRaw);
+        const res = await fetch(url, {cache:'no-store'});
+        const data = await res.json();
+
+        if(data.status === 'NO_BASE'){
+          resBox.innerHTML = `<div class="p-3 rounded-xl border bg-red-50 text-red-700">No se encontró el RUT en la base.</div>`;
+          return;
         }
 
-        async function entregarTodo(){
-          if(!grupo) return;
-          if(!rutValido(receptorRut)) { setMsg("RUT del receptor no es válido"); return; }
-          if(!receptorNombre.trim()) { setMsg("Ingresa el nombre del receptor"); return; }
-          setMsg(""); setBusy(true);
-          try{
-            const res = await fetch("/.netlify/functions/entregar", {
-              method: "POST",
-              headers: {"Content-Type":"application/json"},
-              body: JSON.stringify({
-                rut_busqueda: norm(rut),
-                receptor_rut: norm(receptorRut),
-                receptor_nombre: receptorNombre.trim()
-              })
-            });
-            const data = await res.json();
-            if (data.ok) {
-              setEstado("YA_ENTREGADO");
-              setMsg("Entrega registrada correctamente.");
-            } else {
-              setMsg(data.error || "No se pudo registrar la entrega.");
-            }
-          }catch(e){ setMsg("Error registrando la entrega."); }
-          finally{ setBusy(false); }
-        }
+        // Render de grupo
+        STATE.rutBuscadoRaw = rutRaw;
+        STATE.rutBuscado = normRut(rutRaw);
+        STATE.grupo = data.grupo || null;
 
-        return (
-          <div className="min-h-screen bg-gray-50 text-gray-900 p-4">
-            <div className="max-w-3xl mx-auto space-y-6">
-              <header className="flex items-center justify-between">
-                <h1 className="text-xl font-semibold">Registro de Welcome Packs</h1>
-                <button className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-sm"
-                  onClick={()=>{ setRut(""); setEstado(null); setGrupo(null); setReceptorRut(""); setReceptorNombre(""); setMsg(""); }}>
-                  Reiniciar
-                </button>
-              </header>
+        const g = data.grupo;
+        const resumen = (g?.miembros||[]).reduce((acc,m)=>{
+          const k=(m.categoria||'').toUpperCase(); acc[k]=(acc[k]||0)+1; return acc;
+        }, {});
+        const resumenStr = Object.entries(resumen).map(([k,v])=>`${v} - ${k}`).join(' · ') || '-';
 
-              <section className="bg-white rounded-2xl shadow p-4 space-y-3">
-                <h2 className="font-medium">Buscar por RUT</h2>
-                <div className="flex gap-2">
-                  <input className="flex-1 px-3 py-2 rounded-xl border"
-                    placeholder="Ej: 12.345.678-K o 12345678K"
-                    value={rut} onChange={e=>setRut(e.target.value)}
-                    autoCapitalize="characters" autoCorrect="off" />
-                  <button onClick={buscar} disabled={busy} className="px-4 py-2 rounded-xl bg-black text-white">
-                    {busy ? "Buscando…" : "Buscar"}
-                  </button>
-                </div>
-                {msg && <p className="text-sm text-rose-700">{msg}</p>}
-
-                {estado === "NO_BASE" && (
-                  <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200">
-                    <p className="font-medium text-red-700">NO CORRESPONDE WELCOME PACK</p>
-                    <p className="text-sm text-gray-600 mt-1">Revisa el RUT o comunica incidencia.</p>
-                  </div>
-                )}
-
-                {grupo && (
-                  <div className="mt-3 p-3 rounded-2xl border bg-gray-50">
-                    <div className="text-sm text-gray-600">
-                      Compra de <b>{grupo.comprador?.nombre_comprador}</b> — {grupo.comprador?.tribuna} / {grupo.comprador?.sector}
-                    </div>
-                    <div className="text-sm">Asociados: <b>{grupo.miembros?.length||0}</b> | Categorías: <b>{(grupo.resumen||[]).join(" | ")}</b></div>
-
-                    {estado === "YA_ENTREGADO" && (
-                      <div className="mt-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
-                        Welcome packs ya fueron entregados para este grupo.
-                      </div>
-                    )}
-
-                    {estado === "PENDIENTE" && (
-                      <div className="mt-3 space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-sm text-gray-600">RUT del receptor</label>
-                            <input className="w-full px-3 py-2 rounded-xl border"
-                              value={receptorRut} onChange={e=>setReceptorRut(e.target.value)} placeholder="Ej: 12.345.678-K" />
-                          </div>
-                          <div>
-                            <label className="text-sm text-gray-600">Nombre del receptor</label>
-                            <input className="w-full px-3 py-2 rounded-xl border"
-                              value={receptorNombre} onChange={e=>setReceptorNombre(e.target.value)} placeholder="Nombre y apellido" />
-                          </div>
-                        </div>
-                        <button onClick={entregarTodo} disabled={busy} className="px-4 py-2 rounded-xl bg-blue-600 text-white w-full">
-                          {busy ? "Registrando…" : "Entregar TODO"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </section>
-
-              <p className="text-xs text-gray-500">La base final se define con la variable de entorno <code>BASE_CSV_URL</code>.</p>
+        resBox.innerHTML = `
+          <div class="space-y-2">
+            <div class="p-3 border rounded-xl bg-gray-50">
+              <div><b>Estado:</b> ${escapeHtml(data.status)}</div>
+              <div><b>Comprador:</b> ${escapeHtml(g?.comprador?.nombre_comprador||'-')} (${escapeHtml(g?.comprador?.rut_comprador||'-')})</div>
+              <div><b>Resumen packs:</b> ${escapeHtml(resumenStr)}</div>
+            </div>
+            <div class="table-wrap border rounded-xl">
+              <table class="min-w-full text-sm">
+                <thead class="bg-gray-100 text-left">
+                  <tr>
+                    <th class="px-2 py-1 border-b">Rut</th>
+                    <th class="px-2 py-1 border-b">Nombre</th>
+                    <th class="px-2 py-1 border-b">Categoría</th>
+                    <th class="px-2 py-1 border-b">Tribuna</th>
+                    <th class="px-2 py-1 border-b">Sector</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(g?.miembros||[]).map(m=>`
+                    <tr>
+                      <td class="px-2 py-1 border-b">${escapeHtml(m.rut||'')}</td>
+                      <td class="px-2 py-1 border-b">${escapeHtml(m.nombre||'')}</td>
+                      <td class="px-2 py-1 border-b">${escapeHtml(m.categoria||'')}</td>
+                      <td class="px-2 py-1 border-b">${escapeHtml(m.tribuna||'')}</td>
+                      <td class="px-2 py-1 border-b">${escapeHtml(m.sector||'')}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
             </div>
           </div>
-        );
-      }
+        `;
 
-      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-    </script>
-  </body>
+        if(data.status === 'PENDIENTE'){
+          entregaSec.classList.remove('hidden');
+          document.getElementById('receptor-rut').focus();
+        }else{
+          entregaSec.classList.add('hidden');
+          msgEnt.innerHTML = `<div class="p-2 rounded bg-green-50 text-green-700">Welcome packs ya fueron entregados para este grupo.</div>`;
+        }
+
+      }catch(err){
+        resBox.innerHTML = `<div class="p-3 rounded-xl border bg-red-50 text-red-700">Error al buscar: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // -------- Entregar --------
+    document.getElementById('btn-entregar').addEventListener('click', entregar);
+
+    async function entregar(){
+      const msg = document.getElementById('msg-entrega');
+      msg.textContent = '';
+      if(!STATE.grupo){
+        msg.innerHTML = `<div class="p-2 rounded bg-yellow-50 text-yellow-700">Busca primero un RUT válido.</div>`;
+        return;
+      }
+      const receptor_rut = document.getElementById('receptor-rut').value.trim();
+      const receptor_nombre = document.getElementById('receptor-nombre').value.trim();
+      if(!receptor_rut || !receptor_nombre){
+        msg.innerHTML = `<div class="p-2 rounded bg-yellow-50 text-yellow-700">Completa RUT y nombre del receptor.</div>`;
+        return;
+      }
+      try{
+        const res = await fetch('/.netlify/functions/entregar', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            rut_busqueda: STATE.rutBuscadoRaw,
+            receptor_rut,
+            receptor_nombre
+          })
+        });
+        const out = await res.json();
+        if(out.ok){
+          msg.innerHTML = `<div class="p-2 rounded bg-green-50 text-green-700">Entrega registrada exitosamente (${out.entregados} registros).</div>`;
+          // refrescar búsqueda para ver estado actualizado
+          await buscar();
+          // limpiar campos receptor
+          document.getElementById('receptor-rut').value='';
+          document.getElementById('receptor-nombre').value='';
+        }else{
+          const texto = out.error || 'Error al registrar entrega';
+          // Si el receptor no pertenece al grupo → abrir modal
+          if(/no corresponde/i.test(texto) || /no\s+corresponde\s+al\s+abono/i.test(texto)){
+            openErrorModal('El RUT ingresado no corresponde a este abono.');
+          }else{
+            msg.innerHTML = `<div class="p-2 rounded bg-red-50 text-red-700">${escapeHtml(texto)}</div>`;
+          }
+        }
+      }catch(err){
+        msg.innerHTML = `<div class="p-2 rounded bg-red-50 text-red-700">Error de red: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+  </script>
+</body>
 </html>
