@@ -9,7 +9,12 @@
   <style>
     .table-wrap{overflow:auto}
     .tab-hidden{display:none}
-    .nav-fixed{position:sticky;bottom:0;left:0;right:0}
+    /* barra inferior con estilo anterior */
+    .bottom-nav{position:sticky;bottom:0;left:0;right:0;z-index:30}
+    .tab-btn-old{display:flex;flex-direction:column;align-items:center;gap:4px;
+      padding:.65rem .9rem;border-radius:1rem;background:#fff;border:1px solid #e5e7eb;color:#111827}
+    .tab-btn-old.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .tab-btn-old .ico{font-size:20px;line-height:1}
   </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
@@ -19,18 +24,67 @@
       <!-- sin enlace a voluntarios -->
     </header>
 
-    <!-- NAV inferior -->
-    <nav class="nav-fixed bg-white/95 backdrop-blur border-t rounded-t-2xl shadow px-3 py-2">
-      <div class="grid grid-cols-4 gap-2 max-w-3xl mx-auto">
-        <button data-tab="tab-entregas"  class="tab-btn px-3 py-2 rounded-xl bg-black text-white text-sm">Entregas</button>
-        <button data-tab="tab-exportar"  class="tab-btn px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm">Exportar</button>
-        <button data-tab="tab-reporte"   class="tab-btn px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm">Reporte</button>
-        <button data-tab="tab-metricas"  class="tab-btn px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm">Métricas</button>
+    <!-- CONTENIDOS -->
+    <!-- REGISTRAR (embebemos la vista de voluntario para no romper su flujo) -->
+    <section id="tab-registrar" class="">
+      <div class="bg-white rounded-2xl shadow p-3 md:p-4">
+        <h2 class="text-lg font-semibold mb-2">Registrar entrega</h2>
+        <div class="rounded-xl overflow-hidden border">
+          <iframe src="/" style="width:100%;height:75vh;border:0" title="Vista de registro (voluntarios)"></iframe>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Esta vista está embebida. Si prefieres portar el formulario aquí sin iframe, lo migramos luego.</p>
       </div>
-    </nav>
+    </section>
 
-    <!-- ENTREGAS -->
-    <section id="tab-entregas" class="mt-2">
+    <!-- REPORTe (placeholder si lo usas para buscar abonados) -->
+    <section id="tab-reporte" class="tab-hidden">
+      <div class="bg-white rounded-2xl shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Reporte (consulta de base)</h2>
+        <p class="text-sm text-gray-600">Conecta aquí tu buscador de abonados si lo necesitas.</p>
+      </div>
+    </section>
+
+    <!-- MÉTRICAS -->
+    <section id="tab-metricas" class="tab-hidden">
+      <div class="bg-white rounded-2xl shadow p-4 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold">Métricas</h2>
+          <button id="met-refresh" class="px-3 py-2 rounded-xl bg-gray-100 text-gray-900 text-sm">Actualizar</button>
+        </div>
+
+        <div id="met-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="rounded-xl border p-3">
+            <div class="text-xs text-gray-500">Total base</div>
+            <div id="m-total" class="text-2xl font-bold">–</div>
+          </div>
+          <div class="rounded-xl border p-3">
+            <div class="text-xs text-gray-500">Entregados</div>
+            <div id="m-entregados" class="text-2xl font-bold">–</div>
+          </div>
+          <div class="rounded-xl border p-3">
+            <div class="text-xs text-gray-500">% total</div>
+            <div id="m-pct" class="text-2xl font-bold">–</div>
+          </div>
+        </div>
+
+        <!-- Por tribuna / categoría (si la función los entrega) -->
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-xl border p-3">
+            <div class="font-semibold mb-2">Por tribuna/sector</div>
+            <div id="m-tribuna" class="space-y-1 text-sm text-gray-800">–</div>
+          </div>
+          <div class="rounded-xl border p-3">
+            <div class="font-semibold mb-2">Por categoría</div>
+            <div id="m-cat" class="space-y-1 text-sm text-gray-800">–</div>
+          </div>
+        </div>
+
+        <div id="met-msg" class="text-sm text-red-600"></div>
+      </div>
+    </section>
+
+    <!-- ENTREGAS (log) -->
+    <section id="tab-entregas" class="tab-hidden">
       <div class="bg-white rounded-2xl shadow p-4 space-y-3">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <h2 class="text-lg font-semibold">Entregas registradas</h2>
@@ -41,7 +95,7 @@
           <table class="min-w-full text-sm">
             <thead class="bg-gray-100 text-left">
               <tr>
-                <th class="px-2 py-2 border-b">Fecha/Hora</th> <!-- NUEVA COLUMNA -->
+                <th class="px-2 py-2 border-b">Fecha/Hora</th>
                 <th class="px-2 py-2 border-b">Rut receptor</th>
                 <th class="px-2 py-2 border-b">Nombre receptor</th>
                 <th class="px-2 py-2 border-b">Rut comprador</th>
@@ -50,7 +104,6 @@
                 <th class="px-2 py-2 border-b">Detalle categorías</th>
                 <th class="px-2 py-2 border-b">Tribuna</th>
                 <th class="px-2 py-2 border-b">Sector</th>
-                <!-- Si usas acciones (eliminar), agrega aquí otra <th>Acciones</th> -->
               </tr>
             </thead>
             <tbody id="en-body">
@@ -68,7 +121,7 @@
     </section>
 
     <!-- EXPORTAR -->
-    <section id="tab-exportar" class="tab-hidden mt-2">
+    <section id="tab-exportar" class="tab-hidden">
       <div class="bg-white rounded-2xl shadow p-4 space-y-3">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <h2 class="text-lg font-semibold">Exportar entregas</h2>
@@ -118,22 +171,18 @@
         </div>
       </div>
     </section>
-
-    <!-- REPO / MÉTRICAS placeholders (no rompen layout) -->
-    <section id="tab-reporte" class="tab-hidden mt-2">
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="text-lg font-semibold mb-2">Reporte (placeholder)</h2>
-        <p class="text-sm text-gray-600">Puedes conectar aquí tu búsqueda de base.</p>
-      </div>
-    </section>
-
-    <section id="tab-metricas" class="tab-hidden mt-2">
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="text-lg font-semibold mb-2">Métricas (placeholder)</h2>
-        <p class="text-sm text-gray-600">Conecta tu función de métricas cuando quieras.</p>
-      </div>
-    </section>
   </main>
+
+  <!-- NAV INFERIOR (estilo anterior con iconos) -->
+  <nav class="bottom-nav bg-white/95 backdrop-blur border-t rounded-t-2xl shadow px-3 py-2">
+    <div class="grid grid-cols-4 md:grid-cols-5 gap-2 max-w-3xl mx-auto">
+      <button data-tab="tab-registrar" class="tab-btn-old active"><span class="ico">✍️</span><span class="text-sm">Registrar</span></button>
+      <button data-tab="tab-reporte"   class="tab-btn-old"><span class="ico">🧾</span><span class="text-sm">Reporte</span></button>
+      <button data-tab="tab-metricas"  class="tab-btn-old"><span class="ico">📊</span><span class="text-sm">Métricas</span></button>
+      <button data-tab="tab-entregas"  class="tab-btn-old"><span class="ico">📦</span><span class="text-sm">Entregas</span></button>
+      <button data-tab="tab-exportar"  class="tab-btn-old"><span class="ico">⬇️</span><span class="text-sm">Exportar</span></button>
+    </div>
+  </nav>
 
   <script>
     // ===== Helpers =====
@@ -143,30 +192,30 @@
     const rutFmt = r => { r = String(r||'').toUpperCase(); if(!r) return ''; const b=r.slice(0,-1), dv=r.slice(-1); return b.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'-'+dv; };
     const fechaCh = ts => { try{ return new Date(ts).toLocaleString('es-CL'); }catch(_){ return ts||''; } };
 
-    // ===== Tabs (Entregas activa por defecto) =====
-    const tabs = ['tab-entregas','tab-exportar','tab-reporte','tab-metricas'];
-    document.querySelectorAll('.tab-btn').forEach(btn=>{
+    // ===== Navegación (mantener diseño anterior) =====
+    const tabIds = ['tab-registrar','tab-reporte','tab-metricas','tab-entregas','tab-exportar'];
+    document.querySelectorAll('.tab-btn-old').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const target = btn.dataset.tab;
-        tabs.forEach(id=>{
+        tabIds.forEach(id=>{
           const el = $('#'+id);
-          const b = document.querySelector(`.tab-btn[data-tab="${id}"]`);
+          const b = document.querySelector(`.tab-btn-old[data-tab="${id}"]`);
           if(id===target){
             el.classList.remove('tab-hidden');
-            b?.classList.add('bg-black','text-white');
-            b?.classList.remove('bg-gray-100','text-gray-700');
-            if(id==='tab-exportar' && expAll.length===0) loadExportData();
+            b?.classList.add('active');
+            // disparar cargas lazy
+            if(id==='tab-metricas') loadMetrics();
             if(id==='tab-entregas' && enAll.length===0) loadEntregas();
+            if(id==='tab-exportar' && expAll.length===0) loadExportData();
           }else{
             el.classList.add('tab-hidden');
-            b?.classList.remove('bg-black','text-white');
-            b?.classList.add('bg-gray-100','text-gray-700');
+            b?.classList.remove('active');
           }
         });
       });
     });
 
-    // ===== ENTREGAS (desde get_log) =====
+    // ===== ENTREGAS (/.netlify/functions/get_log) =====
     let enAll = []; let enFiltered = []; let enPage = 1;
     const EN_PAGE_SIZE = 20;
 
@@ -208,7 +257,7 @@
 
       $('#en-body').innerHTML = pageRows.map(row => `
         <tr>
-          <td class="px-2 py-1 border-b whitespace-nowrap">${esc(fechaCh(row.ts))}</td>   <!-- NUEVA COLUMNA -->
+          <td class="px-2 py-1 border-b whitespace-nowrap">${esc(fechaCh(row.ts))}</td>
           <td class="px-2 py-1 border-b">${esc(rutFmt(row.rut_receptor))}</td>
           <td class="px-2 py-1 border-b">${esc(row.nombre_receptor || '')}</td>
           <td class="px-2 py-1 border-b">${esc(rutFmt(row.rut_comprador))}</td>
@@ -217,11 +266,6 @@
           <td class="px-2 py-1 border-b">${esc(row.detalle_texto || '')}</td>
           <td class="px-2 py-1 border-b">${esc(row.tribuna || '')}</td>
           <td class="px-2 py-1 border-b">${esc(row.sector || '')}</td>
-          <!-- Si quieres botón Eliminar:
-          <td class="px-2 py-1 border-b">
-            <button class="px-2 py-1 rounded bg-red-600 text-white" onclick="eliminarEntrega('${row.ts}')">Eliminar</button>
-          </td>
-          -->
         </tr>
       `).join('');
     }
@@ -230,10 +274,7 @@
     $('#en-prev').addEventListener('click', ()=>{ if(enPage>1){ enPage--; renderEntregas(); }});
     $('#en-next').addEventListener('click', ()=>{ const max = Math.ceil(enFiltered.length/EN_PAGE_SIZE); if(enPage<max){ enPage++; renderEntregas(); }});
 
-    // Cargar Entregas al inicio
-    loadEntregas();
-
-    // ===== EXPORTAR (desde export_log?format=json) =====
+    // ===== EXPORTAR (/.netlify/functions/export_log?format=json) =====
     let expAll = []; let expFiltered = []; let expPage = 1;
     const EXP_PAGE_SIZE = 20;
 
@@ -292,8 +333,53 @@
     $('#exp-prev').addEventListener('click', ()=>{ if(expPage>1){ expPage--; renderExportTable(); }});
     $('#exp-next').addEventListener('click', ()=>{ const max = Math.ceil(expFiltered.length/EXP_PAGE_SIZE); if(expPage<max){ expPage++; renderExportTable(); }});
 
-    // Cargar Exportar cuando el usuario abra esa pestaña (o al inicio si prefieres)
-    // loadExportData(); // descomenta si quieres precargar
+    // ===== MÉTRICAS (/.netlify/functions/metrics) =====
+    async function loadMetrics(){
+      try{
+        $('#met-msg').textContent = '';
+        const r = await fetch('/.netlify/functions/metrics',{cache:'no-store'});
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const m = await r.json(); // define aquí tus llaves reales
+        // valores esperados (ajústalo a tu función):
+        // m.total_base, m.entregados, m.pct_total (0-100)
+        // m.tribuna: [{clave, total, pct}]
+        // m.categorias: [{clave, total, pct}]
+        $('#m-total').textContent       = m.total_base ?? '–';
+        $('#m-entregados').textContent  = m.entregados ?? '–';
+        $('#m-pct').textContent         = (m.pct_total!=null ? (m.pct_total.toFixed(1)+'%') : '–');
+
+        // tribuna
+        if(Array.isArray(m.tribuna) && m.tribuna.length){
+          $('#m-tribuna').innerHTML = m.tribuna.map(x =>
+            `<div class="flex items-center justify-between">
+              <span>${esc(x.clave)}</span>
+              <span class="tabular-nums">${esc(x.total)} (${esc((x.pct??0).toFixed?.(1) ?? x.pct) ?? 0}%)</span>
+            </div>`
+          ).join('');
+        }else{
+          $('#m-tribuna').textContent = '–';
+        }
+
+        // categorías
+        if(Array.isArray(m.categorias) && m.categorias.length){
+          $('#m-cat').innerHTML = m.categorias.map(x =>
+            `<div class="flex items-center justify-between">
+              <span>${esc(x.clave)}</span>
+              <span class="tabular-nums">${esc(x.total)} (${esc((x.pct??0).toFixed?.(1) ?? x.pct) ?? 0}%)</span>
+            </div>`
+          ).join('');
+        }else{
+          $('#m-cat').textContent = '–';
+        }
+      }catch(e){
+        $('#met-msg').textContent = 'Error al cargar métricas: ' + e.message;
+      }
+    }
+    $('#met-refresh').addEventListener('click', loadMetrics);
+
+    // Cargas por defecto al abrir
+    loadMetrics();         // por si caes directo en Métricas
+    // Registrar empieza activo (por el botón de abajo)
   </script>
 </body>
 </html>
