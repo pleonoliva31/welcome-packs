@@ -169,48 +169,60 @@ async function buscar(){
   }
 }
 
-  async function guardarEntrega(){
-    const rut_receptor = $("rutReceptor").value.trim();
-    const nombre_receptor = $("nombreReceptor").value.trim();
+async function guardarEntrega(){
+  const rut_receptor = $("rutReceptor").value.trim();
+  const nombre_receptor = $("nombreReceptor").value.trim();
 
-    if (!rut_receptor || !nombre_receptor) {
-      showModal("Faltan datos", "Completa RUT receptor y Nombre receptor.");
+  if (!rut_receptor || !nombre_receptor) {
+    showModal("Faltan datos", "Completa RUT receptor y Nombre receptor.");
+    return;
+  }
+
+  const rut_buscado =
+    (currentData?.buscado?.rut) ||
+    (lastBuscar?.buscado?.rut) ||
+    rutBuscadoActual ||
+    $("rutInput").value.trim();
+
+  if (!rut_buscado) {
+    showModal("Error", "Falta rut_buscado");
+    return;
+  }
+
+  try{
+    const res = await fetch(`/.netlify/functions/entregar`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        rut_buscado,
+        rut_receptor,
+        nombre_receptor
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data?.status === "ERROR") {
+      // Si tu backend responde YA_ENTREGADO con 409 o 400, lo mostramos bien
+      if (data?.status === "YA_ENTREGADO") {
+        showModal("Ya entregado", "Este grupo ya registra entrega.");
+        await buscar();
+        return;
+      }
+      showModal("Error", data?.error || "No se pudo guardar la entrega.");
       return;
     }
 
-    try{
-      const res = await fetch(`/.netlify/functions/entregar`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
-          rut_busqueda: lastBuscar?.buscado?.rut || $("rutInput").value.trim(),
-          rut_receptor,
-          nombre_receptor
-        })
-      });
+    showModal("Listo", "Entrega guardada correctamente.");
+    await buscar();
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data.status === "YA_ENTREGADO") {
-          showModal("Ya entregado", "Este grupo ya registra entrega.");
-          // refresca búsqueda
-          await buscar();
-          return;
-        }
-        showModal("Error", data.error || "No se pudo guardar.");
-        return;
-      }
-
-      showModal("OK", "Entrega guardada correctamente.");
-      await buscar();
-    }catch(e){
-      showModal("Error", e?.message || String(e));
-    }
+  }catch(e){
+    showModal("Error", e?.message || String(e));
   }
+}
 
-  $("btnBuscar").onclick = buscar;
-  $("rutInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") buscar(); });
+$("btnBuscar").onclick = buscar;
+$("rutInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") buscar(); });
 </script>
 </body>
 </html>
