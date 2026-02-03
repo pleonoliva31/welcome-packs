@@ -1,92 +1,104 @@
 // netlify/functions/_log_utils.js
-
-function json(statusCode, body) {
+function json(statusCode, obj, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Cache-Control": "no-store",
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-headers": "content-type",
+      ...extraHeaders,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(obj),
   };
 }
 
-// Calcula DV de RUT chileno (módulo 11)
-function calcDv(rutBodyDigits) {
-  let rut = String(rutBodyDigits).replace(/\D/g, "");
-  let sum = 0;
-  let mul = 2;
-  for (let i = rut.length - 1; i >= 0; i--) {
-    sum += parseInt(rut[i], 10) * mul;
-    mul = mul === 7 ? 2 : mul + 1;
-  }
-  const res = 11 - (sum % 11);
-  if (res === 11) return "0";
-  if (res === 10) return "K";
-  return String(res);
+function okCors() {
+  return { statusCode: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type" }, body: "" };
 }
 
-// Devuelve formato CANÓNICO: "XXXXXXXX-X"
-// Acepta:
-// - con/sin puntos
-// - con/sin guión
-// - con DV o sin DV (si falta DV, lo calcula)
+/**
+ * Normaliza RUT:
+ * - acepta con/sin puntos, con/sin guión, con DV k/K
+ * - devuelve formato canonical: "12345678-9" o "12345678-K"
+ */
 function normalizeRut(input) {
   if (!input) return "";
-
   let s = String(input).trim().toUpperCase();
-  // Quitar espacios y puntos
+
+  // quitar puntos/espacios
   s = s.replace(/\./g, "").replace(/\s+/g, "");
 
-  // Caso con guión
-  if (s.includes("-")) {
-    const [bodyRaw, dvRaw] = s.split("-");
-    const body = (bodyRaw || "").replace(/\D/g, "");
-    let dv = (dvRaw || "").replace(/[^0-9K]/g, "");
-    if (!body) return "";
-    if (!dv) dv = calcDv(body);
-    return `${body}-${dv}`;
-  }
+  // permitir formatos tipo "184653710" (sin guión)
+  // dejamos sólo [0-9K]
+  s = s.replace(/[^0-9K]/g, "");
 
-  // Caso sin guión:
-  // - Si termina en K o dígito y el resto son dígitos => lo interpretamos como "cuerpo+dv"
-  //   ejemplo: "184653710" => cuerpo "18465371", dv "0"
-  const only = s.replace(/[^0-9K]/g, "");
+  if (s.length < 2) return "";
 
-  if (!only) return "";
+  const dv = s.slice(-1);
+  const num = s.slice(0, -1).replace(/^0+/, "") || "0";
 
-  // Si viene con DV pegado (último char K o dígito) y el cuerpo queda 7-8 dígitos
-  const last = only.slice(-1);
-  const bodyCandidate = only.slice(0, -1);
-
-  if (/^[0-9]+$/.test(bodyCandidate) && /^[0-9K]$/.test(last) && bodyCandidate.length >= 7 && bodyCandidate.length <= 8) {
-    return `${bodyCandidate}-${last}`;
-  }
-
-  // Si viene solo cuerpo numérico (7-8 dígitos) => calculamos DV
-  if (/^[0-9]+$/.test(only) && only.length >= 7 && only.length <= 8) {
-    const dv = calcDv(only);
-    return `${only}-${dv}`;
-  }
-
-  // Si viene raro, intento rescatar cuerpo numérico y calcular
-  const body = only.replace(/\D/g, "");
-  if (body.length >= 7 && body.length <= 8) {
-    const dv = calcDv(body);
-    return `${body}-${dv}`;
-  }
-
-  return "";
+  return `${num}-${dv}`;
 }
 
-// Para comparar ignorando DV (por si quieres usarlo en otros lados)
-function rutBody(input) {
-  const n = normalizeRut(input);
-  if (!n) return "";
-  return n.split("-")[0];
+/**
+ * CSV separado por ';' (tu caso)
+ * OJO: asume que no hay ; dentro de los campos.
+ */
+function parseCsvSemicolon(csvText) {
+  const lines = String(csvText || "")
+    .split(/\r?\n/)
+    .filter((l) => l.trim().length > 0);
+
+  if (lines.length < 2) return { headers: [], rows: [] };
+
+  const headers = lines[0].split(";").map((h) => h.trim());
+  const rows = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(";");
+    const obj = {};
+    headers.forEach((h, idx) => (obj[h] = (cols[idx] ?? "").trim()));
+    rows.push(obj);
+  }
+  return { headers, rows };
 }
 
-module.exports = { json, normalizeRut, rutBody };
+function mapRowFromCsv(r) {
+  return {
+    rut_comprador: r["Rut Comprador"] || "",
+    nombre_comprador: r["Nombre Comprador"] || "",
+    email_comprador: r["Email Comprador"] || "",
+    rut: r["Rut"] || "",
+    nombre: r["Nombre Completo"] || "",
+    categoria: r["Welcome Pack"] || "",
+    tribuna: r["Tribuna"] || "",
+    sector: r["Sector"] || "",
+    entregado: r["Entregado"] || "",
+  };
+}
+
+function groupKeyFromRow(m) {
+  // grupo por rut_comprador normalizado
+  return normalizeRut(m.rut_comprador);
+}
+
+function summarizeByCategory(rows) {
+  const conteo = {};
+  rows.forEach((m) => {
+    const c = String(m.categoria || "SIN_CATEGORIA").trim().toUpperCase();
+    conteo[c] = (conteo[c] || 0) + 1;
+  });
+  return Object.entries(conteo).map(([cat, n]) => `${n} - ${cat}`);
+}
+
+module.exports = {
+  json,
+  okCors,
+  normalizeRut,
+  parseCsvSemicolon,
+  mapRowFromCsv,
+  groupKeyFromRow,
+  summarizeByCategory,
+};
