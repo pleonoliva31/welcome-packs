@@ -1,37 +1,26 @@
 // netlify/functions/entregar.js
-const { createClient } = require("@netlify/blobs");
-const { json, normalizeRut } = require("./_log_utils");
+const { getStore } = require("@netlify/blobs");
+const { json, normalizeRut, nowISO } = require("./_log_utils");
 
-function nowIso() {
-  return new Date().toISOString();
-}
+const STORE_NAME = "welcome-packs";
+const KEY = "registro_entregas.csv"; // el mismo archivo que ves en Netlify Blobs
 
-function ensureEnv() {
-  const siteID = process.env.BLOBS_SITE_ID;
-  const token = process.env.BLOBS_TOKEN;
-  if (!siteID || !token) {
-    throw new Error("Faltan BLOBS_SITE_ID o BLOBS_TOKEN en variables de entorno.");
+function csvEscape(v) {
+  const s = String(v ?? "");
+  // CSV simple con comillas si hace falta
+  if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
+    return `"${s.replace(/"/g, '""')}"`;
   }
-  return { siteID, token };
+  return s;
 }
 
-function parseCsv(csvText) {
-  const lines = (csvText || "").split(/\r?\n/).filter(Boolean);
-  if (lines.length === 0) return { header: [], rows: [] };
-  const header = lines[0].split(",").map(s => s.trim());
-  const rows = lines.slice(1).map(line => {
-    const cols = line.split(",");
-    const obj = {};
-    header.forEach((h, i) => obj[h] = (cols[i] ?? "").trim());
-    return obj;
-  });
-  return { header, rows };
+function toCsvLine(fields) {
+  return fields.map(csvEscape).join(",") + "\n";
 }
 
-function toCsv(header, rows) {
-  const head = header.join(",");
-  const body = rows.map(r => header.map(h => (r[h] ?? "")).join(",")).join("\n");
-  return head + "\n" + body + "\n";
+async function readBlobText(store) {
+  const blob = await store.get(KEY, { type: "text" });
+  return blob || "";
 }
 
 exports.handler = async (event) => {
@@ -40,7 +29,12 @@ exports.handler = async (event) => {
       return json(405, { status: "ERROR", error: "Method not allowed" });
     }
 
-    const body = JSON.parse(event.body || "{}");
+    let body = {};
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return json(400, { status: "ERROR", error: "Body JSON inválido" });
+    }
 
     const rut_buscado = normalizeRut(body.rut_buscado || body.rut_busqueda || "");
     const rut_receptor = normalizeRut(body.rut_receptor || "");
@@ -50,53 +44,49 @@ exports.handler = async (event) => {
     if (!rut_receptor) return json(400, { status: "ERROR", error: "Falta rut_receptor" });
     if (!nombre_receptor) return json(400, { status: "ERROR", error: "Falta nombre_receptor" });
 
-    // ✅ Blobs client manual (evita el error que estás viendo)
-    const { siteID, token } = ensureEnv();
-    const client = createClient({ siteID, token });
+    // ✅ Conectar al store correcto
+    const store = getStore(STORE_NAME);
 
-    // Store y archivo (según tu Netlify > Blobs)
-    const store = client.getStore("welcome-packs");
-    const key = "registro_entregas.csv";
+    // Leemos CSV existente
+    const existing = await readBlobText(store);
 
-    // 1) leer CSV actual (si no existe, partimos vacío)
-    let csvText = "";
-    try {
-      csvText = await store.get(key, { type: "text" });
-    } catch (_) {
-      csvText = "";
-    }
+    // Evitar duplicados para el mismo rut_buscado
+    // (buscamos una línea que contenga rut_buscado como primera columna)
+    // Formato que guardaremos: rut_buscado,rut_receptor,nombre_receptor,fecha_iso
+    const lines = existing.split(/\r?\n/).filter(Boolean);
 
-    const header = ["fecha_iso", "rut_buscado", "rut_receptor", "nombre_receptor"];
-    const parsed = parseCsv(csvText);
+    // Si hay header, lo ignoramos en chequeo
+    const hasHeader = lines[0]?.toLowerCase().includes("rut_buscado");
+    const dataLines = hasHeader ? lines.slice(1) : lines;
 
-    // Si el archivo existe pero tiene otro header, lo dejamos como está si es compatible
-    const effectiveHeader =
-      parsed.header && parsed.header.length >= header.length
-        ? parsed.header
-        : header;
-
-    const rows = parsed.rows || [];
-
-    // 2) evitar duplicado exacto (mismo rut_buscado ya registrado)
-    const yaExiste = rows.some(r => normalizeRut(r.rut_buscado) === rut_buscado);
-    if (yaExiste) {
-      return json(409, { status: "YA_ENTREGADO", error: "Este RUT ya tiene entrega registrada." });
-    }
-
-    // 3) agregar registro
-    rows.push({
-      fecha_iso: nowIso(),
-      rut_buscado,
-      rut_receptor,
-      nombre_receptor
+    const yaExiste = dataLines.some((ln) => {
+      const cols = ln.split(",");
+      const rb = normalizeRut(cols[0] || "");
+      return rb === rut_buscado;
     });
 
-    const outCsv = toCsv(effectiveHeader, rows);
+    if (yaExiste) {
+      return json(409, { status: "YA_ENTREGADO" });
+    }
 
-    // 4) guardar en Blobs
-    await store.set(key, outCsv, { contentType: "text/csv" });
+    const fecha_iso = nowISO();
 
-    return json(200, { status: "OK" });
+    let out = existing;
+    if (!out.trim()) {
+      // crear header si está vacío
+      out = "rut_buscado,rut_receptor,nombre_receptor,fecha_iso\n";
+    } else if (!out.endsWith("\n")) {
+      out += "\n";
+    }
+
+    out += toCsvLine([rut_buscado, rut_receptor, nombre_receptor, fecha_iso]);
+
+    // ✅ Guardar de vuelta en el blob
+    await store.set(KEY, out, {
+      contentType: "text/csv; charset=utf-8",
+    });
+
+    return json(200, { status: "OK", fecha_iso });
   } catch (e) {
     return json(500, { status: "ERROR", error: String(e?.message || e) });
   }
