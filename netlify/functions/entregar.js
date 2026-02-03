@@ -1,84 +1,64 @@
 // netlify/functions/entregar.js
-const { json, okCors, normalizeRut } = require("./_log_utils");
-const { createClient } = require("@netlify/blobs");
-
-function getStore() {
-  const siteID = process.env.BLOBS_SITE_ID;
-  const token = process.env.BLOBS_TOKEN;
-  if (!siteID || !token) {
-    throw new Error(
-      "Netlify Blobs no configurado. Falta BLOBS_SITE_ID o BLOBS_TOKEN."
-    );
-  }
-  const client = createClient({ siteID, token });
-  return client.getStore("welcome-pack-logs"); // nombre del store
-}
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-// clave por grupo: rut_comprador normalizado
-function groupKey(rutComprador) {
-  return normalizeRut(rutComprador);
-}
+const { json, normalizeRut, nowIso } = require("./_log_utils");
+const { getStore } = require("@netlify/blobs");
 
 exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return okCors();
-  if (event.httpMethod !== "POST") return json(405, { status: "ERROR", error: "Usa POST" });
-
   try {
+    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
+    if (event.httpMethod !== "POST") return json(405, { status: "ERROR", error: "Método no permitido" });
+
     const body = JSON.parse(event.body || "{}");
 
-    // datos mínimos
-    const rutComprador = normalizeRut(body.rut_comprador || "");
+    const rutBuscado = normalizeRut(body.rut_busqueda || "");
     const rutReceptor = normalizeRut(body.rut_receptor || "");
     const nombreReceptor = String(body.nombre_receptor || "").trim();
 
-    // opcional: para auditoría
-    const rutBuscado = normalizeRut(body.rut_buscado || "");
-    const nombreBuscado = String(body.nombre_buscado || "").trim();
-
-    // detalle del grupo (miembros y resumen) opcional pero recomendado para snapshot
-    const miembros = Array.isArray(body.miembros) ? body.miembros : [];
-    const resumen = Array.isArray(body.resumen) ? body.resumen : [];
-
-    if (!rutComprador) return json(400, { status: "ERROR", error: "Falta rut_comprador" });
+    if (!rutBuscado) return json(400, { status: "ERROR", error: "Falta rut_busqueda" });
     if (!rutReceptor) return json(400, { status: "ERROR", error: "Falta rut_receptor" });
     if (!nombreReceptor) return json(400, { status: "ERROR", error: "Falta nombre_receptor" });
 
-    const store = getStore();
-    const key = groupKey(rutComprador);
+    // volvemos a buscar para obtener el comprador/grupo
+    const baseUrl = process.env.BASE_CSV_URL;
+    if (!baseUrl) return json(500, { status: "ERROR", error: "Falta BASE_CSV_URL" });
 
-    // leer estado actual del grupo
-    const existingRaw = await store.get(key);
-    const existing = existingRaw ? JSON.parse(existingRaw) : null;
+    const res = await fetch(`${process.env.URL || ""}/.netlify/functions/buscar?rut=${encodeURIComponent(rutBuscado)}`);
+    if (!res.ok) return json(500, { status: "ERROR", error: `Fallo buscar interno: HTTP ${res.status}` });
 
-    // Si ya entregado, no permitir doble
-    if (existing?.entregado === true) {
-      return json(200, {
-        status: "YA_ENTREGADO",
-        message: "Este grupo ya registra entrega.",
-        registro: existing,
-      });
+    const data = await res.json();
+    if (data.status === "NO_ENCONTRADO") return json(404, { status: "NO_ENCONTRADO" });
+
+    // Si ya entregado, no permitir duplicar
+    if (data.status === "YA_ENTREGADO") {
+      return json(409, { status: "YA_ENTREGADO", entrega: data.entrega || null });
     }
 
-    const registro = {
+    const rutComprador = normalizeRut(data.comprador?.rut || "");
+    if (!rutComprador) return json(500, { status: "ERROR", error: "No pude determinar rut comprador/grupo" });
+
+    const store = getStore("welcomepack");
+
+    const keyGrupo = `entrega_grupo_${rutComprador}`;
+    const keyLog = `log_${Date.now()}_${rutComprador}`;
+
+    const payload = {
+      fecha_iso: nowIso(),
       rut_comprador: rutComprador,
+      nombre_comprador: data.comprador?.nombre || "",
+      rut_busqueda: rutBuscado,
+      nombre_busqueda: data.buscado?.nombre || "",
       rut_receptor: rutReceptor,
       nombre_receptor: nombreReceptor,
-      rut_buscado: rutBuscado,
-      nombre_buscado: nombreBuscado,
-      miembros,
-      resumen,
-      entregado: true,
-      created_at: nowIso(),
-      updated_at: nowIso(),
+      resumen: data.resumen || [],
+      miembros: data.miembros || [],
     };
 
-    await store.set(key, JSON.stringify(registro));
+    // Guarda registro "único por grupo"
+    await store.setJSON(keyGrupo, payload);
 
-    return json(200, { status: "OK", registro });
+    // Guarda un log histórico (por si después quieres exportar)
+    await store.setJSON(keyLog, payload);
+
+    return json(200, { status: "OK", entrega: payload });
   } catch (e) {
     return json(500, { status: "ERROR", error: String(e?.message || e) });
   }
