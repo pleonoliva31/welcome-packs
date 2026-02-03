@@ -1,30 +1,54 @@
 // netlify/functions/_log_utils.js
-import { createClient } from "@netlify/blobs";
+export async function getStores() {
+  const { getStore } = await import("@netlify/blobs");
+  const logStore = getStore("welcome_log");
+  return { logStore };
+}
 
-const STORE = "entregas_log";
+export function json(statusCode, body) {
+  return {
+    statusCode,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+    },
+    body: JSON.stringify(body),
+  };
+}
 
-function getStore() {
-  const siteId = process.env.BLOBS_SITE_ID;
-  const token  = process.env.BLOBS_TOKEN;
-  if (!siteId || !token) {
-    throw new Error("Faltan BLOBS_SITE_ID o BLOBS_TOKEN en variables de entorno");
+export function normalizeRut(input = "") {
+  return String(input)
+    .trim()
+    .toUpperCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "")
+    .replace(/—/g, "-");
+}
+
+export async function fetchCsvText(url) {
+  if (!url) throw new Error("BASE_CSV_URL no configurada");
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`No pude descargar CSV (${res.status})`);
+  return await res.text();
+}
+
+export function parseCsvSemicolon(csvText) {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (!lines.length) return { headers: [], rows: [] };
+
+  const headers = lines[0].split(";").map((h) => h.trim());
+  const rows = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(";");
+    const obj = {};
+    for (let j = 0; j < headers.length; j++) obj[headers[j]] = (cols[j] ?? "").trim();
+    rows.push(obj);
   }
-  const client = createClient({ siteId, token });
-  return client.use(STORE);
-}
-
-export async function getLog() {
-  const store = getStore();
-  const text = await store.get("log.json", { type: "text" });
-  if (!text) return [];
-  try { return JSON.parse(text); } catch { return []; }
-}
-
-export async function putLog(entry) {
-  const store = getStore();
-  const rows = await getLog();
-  rows.unshift(entry);
-  await store.set("log.json", JSON.stringify(rows), {
-    contentType: "application/json"
-  });
+  return { headers, rows };
 }
