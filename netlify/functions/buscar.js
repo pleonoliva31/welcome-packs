@@ -1,6 +1,9 @@
-// netlify/functions/buscar.js
-const { json, normalizeRut } = require("./_log_utils");
+// netlify/functions/buscar.js  (ESM)
 
+import { json, normalizeRut } from "./_log_utils.js";
+
+// En Node 18+ (Netlify) fetch existe globalmente.
+// Si por alguna razón no existiera, igual fallará y lo verás en el error.
 async function loadCsv(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`No pude descargar CSV. HTTP ${res.status}`);
@@ -8,8 +11,8 @@ async function loadCsv(url) {
 }
 
 function parseCsvSemicolon(csvText) {
-  // Tu CSV es separado por ; (según tus capturas)
-  // OJO: aquí asumimos que no hay ; dentro de campos.
+  // CSV separado por ;  (según tus capturas)
+  // OJO: asume que no hay ; dentro de campos.
   const lines = csvText.split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return { headers: [], rows: [] };
 
@@ -40,7 +43,8 @@ function mapRow(r) {
   };
 }
 
-exports.handler = async (event) => {
+// ✅ Netlify Functions (ESM): export const handler
+export const handler = async (event) => {
   try {
     const baseUrl = process.env.BASE_CSV_URL;
     if (!baseUrl) return json(500, { status: "ERROR", error: "Falta BASE_CSV_URL" });
@@ -70,8 +74,7 @@ exports.handler = async (event) => {
       sector: m.sector,
     }));
 
-    // Estado del grupo: si alguno tiene entregado marcado (o si tu lógica es “grupo completo entregado”)
-    // Mantengo criterio: si hay AL MENOS 1 entregado => YA_ENTREGADO (puedes ajustar)
+    // Estado del grupo: criterio actual (si hay AL MENOS 1 entregado => YA_ENTREGADO)
     const hayEntregado = grupo.some((m) => String(m.entregado || "").trim() !== "");
     const estado = hayEntregado ? "YA_ENTREGADO" : "PENDIENTE";
 
