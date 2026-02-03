@@ -1,19 +1,11 @@
 // netlify/functions/get_log.js
-import { getLog } from "./_log_utils.js";
+const { json, readAllLogs } = require("./_log_utils");
 
-export const handler = async () => {
+exports.handler = async () => {
   try {
-    const rows = await getLog();
-    return {
-      statusCode: 200,
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(rows)
-    };
+    const logs = await readAllLogs(5000);
+    return json(200, { status: "OK", total: logs.length, items: logs });
   } catch (e) {
-    return {
-      statusCode: 500,
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ error: String(e) })
-    };
+    return json(500, { status: "ERROR", error: String(e?.message || e) });
   }
 };
