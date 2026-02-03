@@ -1,54 +1,70 @@
 // netlify/functions/_log_utils.js
-export async function getStores() {
-  const { getStore } = await import("@netlify/blobs");
-  const logStore = getStore("welcome_log");
-  return { logStore };
-}
+const { getStore } = require("@netlify/blobs");
 
-export function json(statusCode, body) {
+function json(statusCode, body) {
   return {
     statusCode,
     headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "access-control-allow-origin": "*",
+      "Content-Type": "application/json; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     },
     body: JSON.stringify(body),
   };
 }
 
-export function normalizeRut(input = "") {
-  return String(input)
-    .trim()
-    .toUpperCase()
-    .replace(/\./g, "")
-    .replace(/\s+/g, "")
-    .replace(/—/g, "-");
+function normalizeRut(input) {
+  if (!input) return "";
+  // Quitar puntos, espacios, guión y dejar DV en mayúscula
+  const s = String(input).trim().toUpperCase().replace(/\./g, "").replace(/-/g, "").replace(/\s+/g, "");
+  return s;
 }
 
-export async function fetchCsvText(url) {
-  if (!url) throw new Error("BASE_CSV_URL no configurada");
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`No pude descargar CSV (${res.status})`);
-  return await res.text();
-}
-
-export function parseCsvSemicolon(csvText) {
-  const lines = csvText
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  if (!lines.length) return { headers: [], rows: [] };
-
-  const headers = lines[0].split(";").map((h) => h.trim());
-  const rows = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(";");
-    const obj = {};
-    for (let j = 0; j < headers.length; j++) obj[headers[j]] = (cols[j] ?? "").trim();
-    rows.push(obj);
+function ensureEnv() {
+  const siteID = process.env.BLOBS_SITE_ID;
+  const token = process.env.BLOBS_TOKEN;
+  if (!siteID || !token) {
+    throw new Error("Faltan variables BLOBS_SITE_ID o BLOBS_TOKEN en Netlify.");
   }
-  return { headers, rows };
+  return { siteID, token };
 }
+
+function getLogStore() {
+  const { siteID, token } = ensureEnv();
+  // Nombre del store (puede ser cualquiera, mantén este fijo)
+  return getStore({ name: "welcomepack-log", siteID, token });
+}
+
+// Guarda un evento en el log (append)
+async function appendLog(entry) {
+  const store = getLogStore();
+  const key = `log:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+  await store.setJSON(key, entry);
+  return key;
+}
+
+// Lee todos los eventos del log (ordenados por fecha)
+async function readAllLogs(limit = 5000) {
+  const store = getLogStore();
+  const list = await store.list({ prefix: "log:" });
+  // list.blobs -> [{ key, ... }]
+  const keys = (list?.blobs || []).map((b) => b.key);
+  // Limitar para no explotar (por si crece mucho)
+  const sliced = keys.slice(-limit);
+
+  const items = [];
+  for (const k of sliced) {
+    const val = await store.getJSON(k);
+    if (val) items.push({ key: k, ...val });
+  }
+  items.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  return items;
+}
+
+module.exports = {
+  json,
+  normalizeRut,
+  appendLog,
+  readAllLogs,
+};
