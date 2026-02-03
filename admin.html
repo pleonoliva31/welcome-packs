@@ -1,385 +1,398 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Panel de Supervisión · Welcome Pack</title>
-  <meta name="color-scheme" content="light">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin · Welcome Pack</title>
   <style>
-    .table-wrap{overflow:auto}
-    .tab-hidden{display:none}
-    /* barra inferior con estilo anterior */
-    .bottom-nav{position:sticky;bottom:0;left:0;right:0;z-index:30}
-    .tab-btn-old{display:flex;flex-direction:column;align-items:center;gap:4px;
-      padding:.65rem .9rem;border-radius:1rem;background:#fff;border:1px solid #e5e7eb;color:#111827}
-    .tab-btn-old.active{background:#0f172a;color:#fff;border-color:#0f172a}
-    .tab-btn-old .ico{font-size:20px;line-height:1}
+    :root{--bg:#f6f7f9;--card:#fff;--text:#0f172a;--muted:#64748b;--danger:#b91c1c;--ok:#166534;}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
+    .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 90px;}
+    h1{margin:0 0 12px;font-size:28px;}
+    .card{background:var(--card);border-radius:18px;box-shadow:0 6px 18px rgba(15,23,42,.08);padding:18px;margin-bottom:14px;}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+    input{flex:1;min-width:240px;padding:14px 16px;border-radius:14px;border:1px solid #e2e8f0;font-size:18px;}
+    button{padding:12px 16px;border-radius:14px;border:0;background:#000;color:#fff;font-size:16px;cursor:pointer;}
+    button:disabled{opacity:.6;cursor:not-allowed;}
+    table{width:100%;border-collapse:collapse;margin-top:12px;display:block;overflow:auto;}
+    th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
+    th{background:#f1f5f9;font-weight:700;position:sticky;top:0;}
+    .alert{padding:12px 14px;border-radius:14px;background:#fee2e2;color:var(--danger);border:1px solid #fecaca;margin-top:10px;}
+    .ok{padding:12px 14px;border-radius:14px;background:#dcfce7;color:var(--ok);border:1px solid #bbf7d0;margin-top:10px;}
+
+    /* Bottom tabs */
+    .tabs{
+      position:fixed;left:0;right:0;bottom:0;
+      background:#fff;border-top:1px solid #e2e8f0;
+      display:flex;gap:10px;justify-content:center;
+      padding:10px;
+      z-index:50;
+    }
+    .tabbtn{
+      flex:1;max-width:220px;
+      background:#f1f5f9;color:#0f172a;
+      border-radius:16px;padding:10px 12px;
+      display:flex;align-items:center;justify-content:center;
+      gap:8px;font-weight:700;
+    }
+    .tabbtn.active{background:#0f172a;color:#fff;}
+    .hidden{display:none;}
+
+    /* Modal */
+    .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:99;}
+    .modal{background:#fff;border-radius:18px;max-width:520px;width:100%;padding:18px;box-shadow:0 18px 40px rgba(0,0,0,.25);}
+    .modal h3{margin:0 0 8px;}
+    .modal p{margin:0 0 14px;color:var(--muted);}
+    .modal .actions{display:flex;gap:10px;justify-content:flex-end;}
+    .btnGhost{background:#e2e8f0;color:#0f172a;}
   </style>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
-  <main class="max-w-6xl mx-auto p-4 pb-28 w-full">
-    <header class="flex items-center justify-between mb-3">
-      <h1 class="text-2xl font-bold">Panel de Supervisión · Welcome Pack</h1>
-      <!-- sin enlace a voluntarios -->
-    </header>
+<body>
+  <div class="wrap">
+    <h1>Panel de Supervisión · Welcome Pack</h1>
 
-    <!-- CONTENIDOS -->
-    <!-- REGISTRAR (embebemos la vista de voluntario para no romper su flujo) -->
-    <section id="tab-registrar" class="">
-      <div class="bg-white rounded-2xl shadow p-3 md:p-4">
-        <h2 class="text-lg font-semibold mb-2">Registrar entrega</h2>
-        <div class="rounded-xl overflow-hidden border">
-          <iframe src="/" style="width:100%;height:75vh;border:0" title="Vista de registro (voluntarios)"></iframe>
+    <!-- REGISTRAR -->
+    <section id="view-registrar" class="card">
+      <h2 style="margin:0 0 10px;">Registrar entrega (admin)</h2>
+
+      <div class="row">
+        <input id="rutBuscar" placeholder="RUT abonado o comprador (con o sin guión)" />
+        <button id="btnBuscar">Buscar</button>
+      </div>
+
+      <div id="buscarMsg"></div>
+
+      <div id="groupBox" style="display:none;margin-top:10px;">
+        <div id="groupHeader" style="font-weight:800;margin-bottom:8px;"></div>
+        <div id="groupSummary" style="color:var(--muted);margin-bottom:10px;"></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Rut</th><th>Nombre</th><th>Categoría</th><th>Tribuna</th><th>Sector</th>
+            </tr>
+          </thead>
+          <tbody id="groupTbody"></tbody>
+        </table>
+
+        <div id="alreadyBox"></div>
+
+        <div id="formEntrega" style="margin-top:14px;">
+          <h3 style="margin:0 0 10px;">Datos del receptor</h3>
+          <div class="row">
+            <input id="rutReceptor" placeholder="RUT receptor (con o sin guión)"/>
+            <input id="nombreReceptor" placeholder="Nombre receptor"/>
+            <button id="btnGuardar">Guardar entrega</button>
+          </div>
         </div>
-        <p class="text-xs text-gray-500 mt-2">Esta vista está embebida. Si prefieres portar el formulario aquí sin iframe, lo migramos luego.</p>
       </div>
     </section>
 
-    <!-- REPORTe (placeholder si lo usas para buscar abonados) -->
-    <section id="tab-reporte" class="tab-hidden">
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="text-lg font-semibold mb-2">Reporte (consulta de base)</h2>
-        <p class="text-sm text-gray-600">Conecta aquí tu buscador de abonados si lo necesitas.</p>
+    <!-- ENTREGAS -->
+    <section id="view-entregas" class="card hidden">
+      <h2 style="margin:0 0 10px;">Entregas registradas (log)</h2>
+      <div class="row">
+        <input id="qLog" placeholder="Buscar por RUT comprador o receptor..." />
+        <button id="btnLog">Actualizar</button>
       </div>
-    </section>
-
-    <!-- MÉTRICAS -->
-    <section id="tab-metricas" class="tab-hidden">
-      <div class="bg-white rounded-2xl shadow p-4 space-y-4">
-        <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold">Métricas</h2>
-          <button id="met-refresh" class="px-3 py-2 rounded-xl bg-gray-100 text-gray-900 text-sm">Actualizar</button>
-        </div>
-
-        <div id="met-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="rounded-xl border p-3">
-            <div class="text-xs text-gray-500">Total base</div>
-            <div id="m-total" class="text-2xl font-bold">–</div>
-          </div>
-          <div class="rounded-xl border p-3">
-            <div class="text-xs text-gray-500">Entregados</div>
-            <div id="m-entregados" class="text-2xl font-bold">–</div>
-          </div>
-          <div class="rounded-xl border p-3">
-            <div class="text-xs text-gray-500">% total</div>
-            <div id="m-pct" class="text-2xl font-bold">–</div>
-          </div>
-        </div>
-
-        <!-- Por tribuna / categoría (si la función los entrega) -->
-        <div class="grid md:grid-cols-2 gap-4">
-          <div class="rounded-xl border p-3">
-            <div class="font-semibold mb-2">Por tribuna/sector</div>
-            <div id="m-tribuna" class="space-y-1 text-sm text-gray-800">–</div>
-          </div>
-          <div class="rounded-xl border p-3">
-            <div class="font-semibold mb-2">Por categoría</div>
-            <div id="m-cat" class="space-y-1 text-sm text-gray-800">–</div>
-          </div>
-        </div>
-
-        <div id="met-msg" class="text-sm text-red-600"></div>
-      </div>
-    </section>
-
-    <!-- ENTREGAS (log) -->
-    <section id="tab-entregas" class="tab-hidden">
-      <div class="bg-white rounded-2xl shadow p-4 space-y-3">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <h2 class="text-lg font-semibold">Entregas registradas</h2>
-          <input id="en-buscar" class="border px-3 py-2 rounded-xl w-full md:w-80" placeholder="Buscar por RUT o nombre…">
-        </div>
-
-        <div class="table-wrap border rounded-xl">
-          <table class="min-w-full text-sm">
-            <thead class="bg-gray-100 text-left">
-              <tr>
-                <th class="px-2 py-2 border-b">Fecha/Hora</th>
-                <th class="px-2 py-2 border-b">Rut receptor</th>
-                <th class="px-2 py-2 border-b">Nombre receptor</th>
-                <th class="px-2 py-2 border-b">Rut comprador</th>
-                <th class="px-2 py-2 border-b">Nombre comprador</th>
-                <th class="px-2 py-2 border-b">Total packs</th>
-                <th class="px-2 py-2 border-b">Detalle categorías</th>
-                <th class="px-2 py-2 border-b">Tribuna</th>
-                <th class="px-2 py-2 border-b">Sector</th>
-              </tr>
-            </thead>
-            <tbody id="en-body">
-              <tr><td class="px-2 py-3 text-center text-gray-500" colspan="9">Cargando…</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="flex items-center justify-between pt-1">
-          <button id="en-prev" class="px-3 py-1 rounded-xl bg-gray-100 text-gray-900 text-sm disabled:opacity-40" disabled>« Anterior</button>
-          <div class="text-sm text-gray-600">Página <span id="en-page">1</span> · <span id="en-count">0</span> registros</div>
-          <button id="en-next" class="px-3 py-1 rounded-xl bg-gray-100 text-gray-900 text-sm disabled:opacity-40" disabled>Siguiente »</button>
-        </div>
-      </div>
+      <div id="logMsg"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Rut comprador</th>
+            <th>Rut receptor</th>
+            <th>Nombre receptor</th>
+            <th>Fecha/hora (ISO)</th>
+          </tr>
+        </thead>
+        <tbody id="logTbody"></tbody>
+      </table>
     </section>
 
     <!-- EXPORTAR -->
-    <section id="tab-exportar" class="tab-hidden">
-      <div class="bg-white rounded-2xl shadow p-4 space-y-3">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <h2 class="text-lg font-semibold">Exportar entregas</h2>
-          <div class="flex gap-2">
-            <a href="/.netlify/functions/export_log"
-               class="px-4 py-2 rounded-xl bg-black text-white text-sm"
-               download>Exportar a Excel</a>
-            <a href="/.netlify/functions/export_log?format=json"
-               class="px-4 py-2 rounded-xl bg-gray-100 text-gray-900 text-sm"
-               download>Descargar JSON</a>
-          </div>
-        </div>
-
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <input id="exp-buscar" class="border px-3 py-2 rounded-xl w-full md:w-80"
-                 placeholder="Buscar por RUT o nombre…">
-          <div class="text-sm text-gray-600">
-            <span id="exp-count"></span>
-          </div>
-        </div>
-
-        <div class="table-wrap border rounded-xl">
-          <table class="min-w-full text-sm" id="exp-table">
-            <thead class="bg-gray-100 text-left">
-              <tr>
-                <th class="px-2 py-2 border-b">Fecha/Hora</th>
-                <th class="px-2 py-2 border-b">Rut receptor</th>
-                <th class="px-2 py-2 border-b">Nombre receptor</th>
-                <th class="px-2 py-2 border-b">Rut comprador</th>
-                <th class="px-2 py-2 border-b">Nombre comprador</th>
-                <th class="px-2 py-2 border-b">Total packs</th>
-                <th class="px-2 py-2 border-b">Detalle categorías</th>
-                <th class="px-2 py-2 border-b">Tribuna</th>
-                <th class="px-2 py-2 border-b">Sector</th>
-              </tr>
-            </thead>
-            <tbody id="exp-body">
-              <tr><td class="px-2 py-3 text-center text-gray-500" colspan="9">Cargando…</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="flex items-center justify-between pt-1">
-          <button id="exp-prev" class="px-3 py-1 rounded-xl bg-gray-100 text-gray-900 text-sm disabled:opacity-40" disabled>« Anterior</button>
-          <div class="text-sm text-gray-600">Página <span id="exp-page">1</span></div>
-          <button id="exp-next" class="px-3 py-1 rounded-xl bg-gray-100 text-gray-900 text-sm disabled:opacity-40" disabled>Siguiente »</button>
-        </div>
+    <section id="view-exportar" class="card hidden">
+      <h2 style="margin:0 0 10px;">Exportar</h2>
+      <div class="row">
+        <button onclick="window.open('/.netlify/functions/export_base','_blank')">Descargar base (CSV)</button>
+        <button onclick="window.open('/.netlify/functions/export_log','_blank')">Descargar entregas (CSV)</button>
+        <button onclick="window.open('/.netlify/functions/export_pendientes','_blank')">Descargar pendientes (CSV)</button>
+      </div>
+      <div style="color:var(--muted);margin-top:10px;">
+        * “Pendientes” = grupos cuyo <b>rut_comprador</b> aún no está en el log de Blobs.
       </div>
     </section>
-  </main>
 
-  <!-- NAV INFERIOR (estilo anterior con iconos) -->
-  <nav class="bottom-nav bg-white/95 backdrop-blur border-t rounded-t-2xl shadow px-3 py-2">
-    <div class="grid grid-cols-4 md:grid-cols-5 gap-2 max-w-3xl mx-auto">
-      <button data-tab="tab-registrar" class="tab-btn-old active"><span class="ico">✍️</span><span class="text-sm">Registrar</span></button>
-      <button data-tab="tab-reporte"   class="tab-btn-old"><span class="ico">🧾</span><span class="text-sm">Reporte</span></button>
-      <button data-tab="tab-metricas"  class="tab-btn-old"><span class="ico">📊</span><span class="text-sm">Métricas</span></button>
-      <button data-tab="tab-entregas"  class="tab-btn-old"><span class="ico">📦</span><span class="text-sm">Entregas</span></button>
-      <button data-tab="tab-exportar"  class="tab-btn-old"><span class="ico">⬇️</span><span class="text-sm">Exportar</span></button>
+    <!-- REPORTE (placeholder simple: usa buscar + log si quieres luego) -->
+    <section id="view-reporte" class="card hidden">
+      <h2 style="margin:0 0 10px;">Reporte</h2>
+      <div style="color:var(--muted);">Si quieres, aquí armamos el buscador avanzado + tabla consolidada.</div>
+    </section>
+
+    <!-- METRICAS -->
+    <section id="view-metricas" class="card hidden">
+      <h2 style="margin:0 0 10px;">Métricas</h2>
+      <button id="btnMetrics">Cargar métricas</button>
+      <div id="metricsBox" style="margin-top:10px;"></div>
+    </section>
+  </div>
+
+  <!-- TABS ABAJO -->
+  <div class="tabs">
+    <div class="tabbtn active" data-tab="registrar">📝 Registrar</div>
+    <div class="tabbtn" data-tab="entregas">📦 Entregas</div>
+    <div class="tabbtn" data-tab="exportar">⬇️ Exportar</div>
+    <div class="tabbtn" data-tab="reporte">📋 Reporte</div>
+    <div class="tabbtn" data-tab="metricas">📊 Métricas</div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modalOverlay" id="modalOverlay">
+    <div class="modal">
+      <h3 id="modalTitle">Aviso</h3>
+      <p id="modalText"></p>
+      <div class="actions">
+        <button class="btnGhost" id="modalClose">Cerrar</button>
+      </div>
     </div>
-  </nav>
+  </div>
 
-  <script>
-    // ===== Helpers =====
-    const $ = s => document.querySelector(s);
-    const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'');
-    const rutFmt = r => { r = String(r||'').toUpperCase(); if(!r) return ''; const b=r.slice(0,-1), dv=r.slice(-1); return b.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'-'+dv; };
-    const fechaCh = ts => { try{ return new Date(ts).toLocaleString('es-CL'); }catch(_){ return ts||''; } };
+<script>
+  const $ = (id)=>document.getElementById(id);
 
-    // ===== Navegación (mantener diseño anterior) =====
-    const tabIds = ['tab-registrar','tab-reporte','tab-metricas','tab-entregas','tab-exportar'];
-    document.querySelectorAll('.tab-btn-old').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const target = btn.dataset.tab;
-        tabIds.forEach(id=>{
-          const el = $('#'+id);
-          const b = document.querySelector(`.tab-btn-old[data-tab="${id}"]`);
-          if(id===target){
-            el.classList.remove('tab-hidden');
-            b?.classList.add('active');
-            // disparar cargas lazy
-            if(id==='tab-metricas') loadMetrics();
-            if(id==='tab-entregas' && enAll.length===0) loadEntregas();
-            if(id==='tab-exportar' && expAll.length===0) loadExportData();
-          }else{
-            el.classList.add('tab-hidden');
-            b?.classList.remove('active');
-          }
-        });
-      });
+  // modal
+  const modalOverlay = $("modalOverlay");
+  const modalTitle = $("modalTitle");
+  const modalText = $("modalText");
+  const modalClose = $("modalClose");
+  function showModal(title, text){
+    modalTitle.textContent = title || "Aviso";
+    modalText.textContent = text || "";
+    modalOverlay.style.display = "flex";
+  }
+  modalClose.onclick = ()=> modalOverlay.style.display="none";
+  modalOverlay.addEventListener("click",(e)=>{ if(e.target===modalOverlay) modalOverlay.style.display="none"; });
+
+  // tabs
+  const views = {
+    registrar: $("view-registrar"),
+    entregas: $("view-entregas"),
+    exportar: $("view-exportar"),
+    reporte: $("view-reporte"),
+    metricas: $("view-metricas")
+  };
+  document.querySelectorAll(".tabbtn").forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll(".tabbtn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      Object.values(views).forEach(v=>v.classList.add("hidden"));
+      views[btn.dataset.tab].classList.remove("hidden");
+    };
+  });
+
+  // registrar
+  const rutBuscar = $("rutBuscar");
+  const btnBuscar = $("btnBuscar");
+  const buscarMsg = $("buscarMsg");
+  const groupBox = $("groupBox");
+  const groupHeader = $("groupHeader");
+  const groupSummary = $("groupSummary");
+  const groupTbody = $("groupTbody");
+  const alreadyBox = $("alreadyBox");
+  const rutReceptor = $("rutReceptor");
+  const nombreReceptor = $("nombreReceptor");
+  const btnGuardar = $("btnGuardar");
+
+  let lastData = null;
+
+  function setMsg(el, type, text){
+    el.innerHTML = "";
+    if(!text) return;
+    const div = document.createElement("div");
+    div.className = (type==="ok") ? "ok" : "alert";
+    div.textContent = text;
+    el.appendChild(div);
+  }
+
+  function renderGroup(data){
+    lastData = data;
+    groupBox.style.display = "block";
+    groupTbody.innerHTML = "";
+    alreadyBox.innerHTML = "";
+
+    groupHeader.textContent =
+      `Estado: ${data.status} · RUT buscado: ${data.buscado.rut} · Nombre: ${data.buscado.nombre || "-"}`;
+    groupSummary.textContent =
+      `Comprador: ${data.comprador.nombre || "-"} (${data.comprador.rut}) · Resumen packs: ${data.resumen.join(", ")}`;
+
+    data.miembros.forEach(m=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${m.rut}</td><td>${m.nombre||""}</td><td>${m.categoria||""}</td><td>${m.tribuna||""}</td><td>${m.sector||""}</td>`;
+      groupTbody.appendChild(tr);
     });
 
-    // ===== ENTREGAS (/.netlify/functions/get_log) =====
-    let enAll = []; let enFiltered = []; let enPage = 1;
-    const EN_PAGE_SIZE = 20;
+    if(data.status === "YA_ENTREGADO"){
+      const div = document.createElement("div");
+      div.className = "ok";
+      div.textContent = "Este grupo ya aparece como ENTREGADO (según base).";
+      alreadyBox.appendChild(div);
+    }
+  }
 
-    async function loadEntregas(){
-      try{
-        const r = await fetch('/.netlify/functions/get_log',{cache:'no-store'});
-        const rows = await r.json();
-        enAll = Array.isArray(rows) ? rows : [];
-        applyEnFilter();
-      }catch(e){
-        $('#en-body').innerHTML = `<tr><td class="px-2 py-3 text-center text-red-600" colspan="9">Error al cargar: ${esc(e.message)}</td></tr>`;
+  async function buscar(){
+    const rut = rutBuscar.value.trim();
+    setMsg(buscarMsg, "", "");
+    groupBox.style.display = "none";
+    lastData = null;
+
+    if(!rut){
+      showModal("Falta RUT", "Ingresa un RUT para buscar.");
+      return;
+    }
+
+    btnBuscar.disabled = true;
+    try{
+      const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
+      const data = await res.json();
+
+      if(data.status === "NO_ENCONTRADO"){
+        showModal("No encontrado", "No se encontró el RUT en la base.");
+        return;
       }
-    }
-
-    function applyEnFilter(){
-      const q = norm($('#en-buscar').value);
-      enFiltered = !q ? enAll.slice() : enAll.filter(r=>{
-        return [r.rut_receptor, r.nombre_receptor, r.rut_comprador, r.nombre_comprador]
-          .some(v => norm(v).includes(q));
-      });
-      enPage = 1;
-      renderEntregas();
-    }
-
-    function renderEntregas(){
-      const total = enFiltered.length;
-      const start = (enPage-1)*EN_PAGE_SIZE;
-      const pageRows = enFiltered.slice(start, start+EN_PAGE_SIZE);
-
-      $('#en-page').textContent = String(enPage);
-      $('#en-count').textContent = String(total);
-      $('#en-prev').disabled = enPage<=1;
-      $('#en-next').disabled = start+EN_PAGE_SIZE >= total;
-
-      if(!pageRows.length){
-        $('#en-body').innerHTML = `<tr><td class="px-2 py-3 text-center text-gray-500" colspan="9">Sin resultados</td></tr>`;
+      if(data.status === "SIN_GRUPO"){
+        showModal("Sin grupo", "Se encontró el RUT, pero no se pudo armar el grupo del comprador.");
+        return;
+      }
+      if(data.status === "ERROR"){
+        showModal("Error", data.error || "Error desconocido");
         return;
       }
 
-      $('#en-body').innerHTML = pageRows.map(row => `
-        <tr>
-          <td class="px-2 py-1 border-b whitespace-nowrap">${esc(fechaCh(row.ts))}</td>
-          <td class="px-2 py-1 border-b">${esc(rutFmt(row.rut_receptor))}</td>
-          <td class="px-2 py-1 border-b">${esc(row.nombre_receptor || '')}</td>
-          <td class="px-2 py-1 border-b">${esc(rutFmt(row.rut_comprador))}</td>
-          <td class="px-2 py-1 border-b">${esc(row.nombre_comprador || '')}</td>
-          <td class="px-2 py-1 border-b text-right">${esc(row.total_packs ?? 0)}</td>
-          <td class="px-2 py-1 border-b">${esc(row.detalle_texto || '')}</td>
-          <td class="px-2 py-1 border-b">${esc(row.tribuna || '')}</td>
-          <td class="px-2 py-1 border-b">${esc(row.sector || '')}</td>
-        </tr>
-      `).join('');
+      renderGroup(data);
+    }catch(e){
+      showModal("Error al cargar", String(e?.message || e));
+    }finally{
+      btnBuscar.disabled = false;
+    }
+  }
+
+  btnBuscar.onclick = buscar;
+  rutBuscar.addEventListener("keydown",(e)=>{ if(e.key==="Enter") buscar(); });
+
+  async function guardar(){
+    if(!lastData){
+      showModal("Sin grupo", "Primero busca un RUT.");
+      return;
     }
 
-    $('#en-buscar').addEventListener('input', applyEnFilter);
-    $('#en-prev').addEventListener('click', ()=>{ if(enPage>1){ enPage--; renderEntregas(); }});
-    $('#en-next').addEventListener('click', ()=>{ const max = Math.ceil(enFiltered.length/EN_PAGE_SIZE); if(enPage<max){ enPage++; renderEntregas(); }});
+    const body = {
+      rut_comprador: lastData.comprador.rut,
+      rut_receptor: rutReceptor.value.trim(),
+      nombre_receptor: nombreReceptor.value.trim()
+    };
 
-    // ===== EXPORTAR (/.netlify/functions/export_log?format=json) =====
-    let expAll = []; let expFiltered = []; let expPage = 1;
-    const EXP_PAGE_SIZE = 20;
-
-    async function loadExportData(){
-      try{
-        const r = await fetch('/.netlify/functions/export_log?format=json',{cache:'no-store'});
-        const rows = await r.json();
-        expAll = Array.isArray(rows) ? rows : [];
-        applyExpFilter();
-      }catch(e){
-        $('#exp-body').innerHTML = `<tr><td class="px-2 py-3 text-center text-red-600" colspan="9">Error al cargar: ${esc(e.message)}</td></tr>`;
-      }
+    if(!body.rut_receptor || !body.nombre_receptor){
+      showModal("Faltan datos", "Completa RUT receptor y nombre receptor.");
+      return;
     }
 
-    function applyExpFilter(){
-      const q = norm($('#exp-buscar').value);
-      expFiltered = !q ? expAll.slice() : expAll.filter(r=>{
-        return [r.rut_receptor, r.nombre_receptor, r.rut_comprador, r.nombre_comprador]
-          .some(v => norm(v).includes(q));
+    btnGuardar.disabled = true;
+    try{
+      const res = await fetch("/.netlify/functions/entregar", {
+        method:"POST",
+        headers:{ "content-type":"application/json" },
+        body: JSON.stringify(body)
       });
-      expPage = 1;
-      renderExportTable();
-    }
+      const data = await res.json();
 
-    function renderExportTable(){
-      const total = expFiltered.length;
-      const start = (expPage-1)*EXP_PAGE_SIZE;
-      const pageRows = expFiltered.slice(start, start+EXP_PAGE_SIZE);
-
-      $('#exp-count').textContent = total ? `${total} registros` : '0 registros';
-      $('#exp-page').textContent = String(expPage);
-      $('#exp-prev').disabled = expPage<=1;
-      $('#exp-next').disabled = start+EXP_PAGE_SIZE >= total;
-
-      if(!pageRows.length){
-        $('#exp-body').innerHTML = `<tr><td class="px-2 py-3 text-center text-gray-500" colspan="9">Sin resultados</td></tr>`;
+      if(data.status === "YA_ENTREGADO"){
+        showModal("Ya entregado", "Este grupo ya tenía entrega registrada en el log.");
+        return;
+      }
+      if(data.status !== "OK"){
+        showModal("Error", data.error || "No se pudo guardar.");
         return;
       }
 
-      $('#exp-body').innerHTML = pageRows.map(r=>`
-        <tr>
-          <td class="px-2 py-1 border-b whitespace-nowrap">${esc(fechaCh(r.ts))}</td>
-          <td class="px-2 py-1 border-b">${esc(rutFmt(r.rut_receptor))}</td>
-          <td class="px-2 py-1 border-b">${esc(r.nombre_receptor||'')}</td>
-          <td class="px-2 py-1 border-b">${esc(rutFmt(r.rut_comprador))}</td>
-          <td class="px-2 py-1 border-b">${esc(r.nombre_comprador||'')}</td>
-          <td class="px-2 py-1 border-b text-right">${esc(r.total_packs ?? 0)}</td>
-          <td class="px-2 py-1 border-b">${esc(r.detalle_texto||'')}</td>
-          <td class="px-2 py-1 border-b">${esc(r.tribuna||'')}</td>
-          <td class="px-2 py-1 border-b">${esc(r.sector||'')}</td>
-        </tr>
-      `).join('');
+      showModal("Listo ✅", "Entrega registrada correctamente.");
+      rutReceptor.value = "";
+      nombreReceptor.value = "";
+    }catch(e){
+      showModal("Error", String(e?.message || e));
+    }finally{
+      btnGuardar.disabled = false;
     }
+  }
 
-    $('#exp-buscar').addEventListener('input', applyExpFilter);
-    $('#exp-prev').addEventListener('click', ()=>{ if(expPage>1){ expPage--; renderExportTable(); }});
-    $('#exp-next').addEventListener('click', ()=>{ const max = Math.ceil(expFiltered.length/EXP_PAGE_SIZE); if(expPage<max){ expPage++; renderExportTable(); }});
+  btnGuardar.onclick = guardar;
 
-    // ===== MÉTRICAS (/.netlify/functions/metrics) =====
-    async function loadMetrics(){
-      try{
-        $('#met-msg').textContent = '';
-        const r = await fetch('/.netlify/functions/metrics',{cache:'no-store'});
-        if(!r.ok) throw new Error('HTTP '+r.status);
-        const m = await r.json(); // define aquí tus llaves reales
-        // valores esperados (ajústalo a tu función):
-        // m.total_base, m.entregados, m.pct_total (0-100)
-        // m.tribuna: [{clave, total, pct}]
-        // m.categorias: [{clave, total, pct}]
-        $('#m-total').textContent       = m.total_base ?? '–';
-        $('#m-entregados').textContent  = m.entregados ?? '–';
-        $('#m-pct').textContent         = (m.pct_total!=null ? (m.pct_total.toFixed(1)+'%') : '–');
+  // Entregas tab
+  const qLog = $("qLog");
+  const btnLog = $("btnLog");
+  const logMsg = $("logMsg");
+  const logTbody = $("logTbody");
 
-        // tribuna
-        if(Array.isArray(m.tribuna) && m.tribuna.length){
-          $('#m-tribuna').innerHTML = m.tribuna.map(x =>
-            `<div class="flex items-center justify-between">
-              <span>${esc(x.clave)}</span>
-              <span class="tabular-nums">${esc(x.total)} (${esc((x.pct??0).toFixed?.(1) ?? x.pct) ?? 0}%)</span>
-            </div>`
-          ).join('');
-        }else{
-          $('#m-tribuna').textContent = '–';
-        }
+  async function cargarLog(){
+    setMsg(logMsg, "", "");
+    logTbody.innerHTML = "";
+    btnLog.disabled = true;
 
-        // categorías
-        if(Array.isArray(m.categorias) && m.categorias.length){
-          $('#m-cat').innerHTML = m.categorias.map(x =>
-            `<div class="flex items-center justify-between">
-              <span>${esc(x.clave)}</span>
-              <span class="tabular-nums">${esc(x.total)} (${esc((x.pct??0).toFixed?.(1) ?? x.pct) ?? 0}%)</span>
-            </div>`
-          ).join('');
-        }else{
-          $('#m-cat').textContent = '–';
-        }
-      }catch(e){
-        $('#met-msg').textContent = 'Error al cargar métricas: ' + e.message;
+    try{
+      const res = await fetch("/.netlify/functions/get_log");
+      const data = await res.json();
+      if(data.status !== "OK"){
+        setMsg(logMsg, "err", data.error || "No se pudo cargar log");
+        return;
       }
-    }
-    $('#met-refresh').addEventListener('click', loadMetrics);
 
-    // Cargas por defecto al abrir
-    loadMetrics();         // por si caes directo en Métricas
-    // Registrar empieza activo (por el botón de abajo)
-  </script>
+      const q = (qLog.value || "").trim().toUpperCase();
+      const items = (data.items || []).filter(x=>{
+        if(!q) return true;
+        return String(x.rut_comprador||"").toUpperCase().includes(q)
+          || String(x.rut_receptor||"").toUpperCase().includes(q)
+          || String(x.nombre_receptor||"").toUpperCase().includes(q);
+      });
+
+      items.forEach(x=>{
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${x.rut_comprador||""}</td>
+          <td>${x.rut_receptor||""}</td>
+          <td>${x.nombre_receptor||""}</td>
+          <td>${x.fecha_iso||""}</td>
+        `;
+        logTbody.appendChild(tr);
+      });
+
+      if(!items.length) setMsg(logMsg, "err", "Sin datos para mostrar.");
+    }catch(e){
+      setMsg(logMsg, "err", String(e?.message || e));
+    }finally{
+      btnLog.disabled = false;
+    }
+  }
+
+  btnLog.onclick = cargarLog;
+
+  // Métricas tab
+  const btnMetrics = $("btnMetrics");
+  const metricsBox = $("metricsBox");
+  btnMetrics.onclick = async ()=>{
+    metricsBox.innerHTML = "";
+    btnMetrics.disabled = true;
+    try{
+      const res = await fetch("/.netlify/functions/metrics");
+      const data = await res.json();
+      if(data.status !== "OK"){
+        metricsBox.innerHTML = `<div class="alert">${data.error || "No se pudo cargar métricas"}</div>`;
+        return;
+      }
+      metricsBox.innerHTML = `<div class="ok">Total entregas registradas: <b>${data.total_entregas}</b></div>`;
+    }catch(e){
+      metricsBox.innerHTML = `<div class="alert">${String(e?.message || e)}</div>`;
+    }finally{
+      btnMetrics.disabled = false;
+    }
+  };
+</script>
 </body>
 </html>
