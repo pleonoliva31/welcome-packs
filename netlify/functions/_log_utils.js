@@ -1,62 +1,39 @@
-// netlify/functions/_log_utils.js (CommonJS)
-
-function json(statusCode, bodyObj) {
+// netlify/functions/_log_utils.js
+function json(statusCode, obj) {
   return {
     statusCode,
     headers: {
-      "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "content-type",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "Content-Type": "application/json; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
     },
-    body: JSON.stringify(bodyObj),
+    body: JSON.stringify(obj),
   };
 }
 
-function okCors() {
-  return {
-    statusCode: 204,
-    headers: {
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "content-type",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
-    },
-    body: "",
-  };
+// Normaliza RUT: quita puntos/espacios, deja guión antes del DV y DV en MAYÚSCULA
+function normalizeRut(input) {
+  if (!input) return "";
+  let s = String(input).trim().toUpperCase();
+  s = s.replace(/\./g, "").replace(/\s+/g, "");
+
+  // si viene con guión, ok
+  if (s.includes("-")) {
+    const [num, dv] = s.split("-");
+    if (!num || !dv) return "";
+    return `${num.replace(/\D/g, "")}-${dv.replace(/[^0-9K]/g, "")}`;
+  }
+
+  // si viene sin guión: último char es DV
+  const clean = s.replace(/[^0-9K]/g, "");
+  if (clean.length < 2) return "";
+  const num = clean.slice(0, -1);
+  const dv = clean.slice(-1);
+  return `${num}-${dv}`;
 }
 
-// Normaliza: quita puntos y guiones. Ej: 18.465.371-0 -> 184653710 ; 21599273-K -> 21599273K
-function normalizeRut(rut) {
-  if (!rut) return "";
-  const r = String(rut)
-    .trim()
-    .toUpperCase()
-    .replace(/\./g, "")
-    .replace(/-/g, "");
-
-  if (r.length < 2) return "";
-  return r;
+function nowISO() {
+  return new Date().toISOString();
 }
 
-// Formatea: 184653710 -> 18465371-0
-function formatRut(rutAny) {
-  const r = normalizeRut(rutAny);
-  if (!r || r.length < 2) return "";
-  const cuerpo = r.slice(0, -1);
-  const dv = r.slice(-1);
-  return `${cuerpo}-${dv}`;
-}
-
-// Fecha/hora “Chile” simple (UTC-3). Si quieres DST después lo ajustamos.
-function nowIsoChile() {
-  const d = new Date();
-  const utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
-  const chileMs = utcMs - 3 * 60 * 60000;
-  const c = new Date(chileMs);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${c.getFullYear()}-${pad(c.getMonth() + 1)}-${pad(c.getDate())} ${pad(
-    c.getHours()
-  )}:${pad(c.getMinutes())}:${pad(c.getSeconds())}`;
-}
-
-module.exports = { json, okCors, normalizeRut, formatRut, nowIsoChile };
+module.exports = { json, normalizeRut, nowISO };
