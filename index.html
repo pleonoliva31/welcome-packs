@@ -3,31 +3,35 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Registro de entrega · Welcome Pack</title>
+  <title>Registro de Welcome Packs</title>
   <style>
-    :root{--bg:#f6f7f9;--card:#fff;--text:#0f172a;--muted:#64748b;--danger:#b91c1c;--ok:#166534;}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
-    .wrap{max-width:980px;margin:0 auto;padding:24px;}
-    h1{margin:0 0 18px;font-size:34px;}
-    .card{background:var(--card);border-radius:18px;box-shadow:0 6px 18px rgba(15,23,42,.08);padding:20px;margin-bottom:18px;}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
-    input{flex:1;min-width:240px;padding:14px 16px;border-radius:14px;border:1px solid #e2e8f0;font-size:18px;}
-    button{padding:14px 18px;border-radius:14px;border:0;background:#000;color:#fff;font-size:18px;cursor:pointer;}
-    button:disabled{opacity:.6;cursor:not-allowed;}
-    .tip{color:var(--muted);margin-top:8px;}
-    .alert{padding:14px 16px;border-radius:14px;background:#fee2e2;color:var(--danger);border:1px solid #fecaca;margin-top:12px;}
-    .ok{padding:14px 16px;border-radius:14px;background:#dcfce7;color:var(--ok);border:1px solid #bbf7d0;margin-top:12px;}
-    table{width:100%;border-collapse:collapse;margin-top:12px;display:block;overflow:auto;}
-    th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
-    th{background:#f1f5f9;font-weight:700;position:sticky;top:0;}
-    .summary{margin-top:10px;color:var(--muted);}
+    :root { --bg:#f5f7fb; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --danger:#b91c1c; --dangerbg:#fee2e2; --okbg:#dcfce7; }
+    body{ margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text); }
+    .wrap{ max-width:980px; margin:28px auto; padding:0 16px; }
+    h1{ font-size:44px; margin:0 0 18px; letter-spacing:-.02em; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow: 0 6px 18px rgba(15,23,42,.06); }
+    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    input{ width:100%; max-width:640px; padding:14px 16px; border:1px solid var(--line); border-radius:14px; font-size:18px; outline:none; }
+    button{ padding:14px 18px; border-radius:14px; border:0; background:#000; color:#fff; font-size:18px; cursor:pointer; }
+    .tip{ margin:10px 0 0; color:var(--muted); }
+    .msg{ margin-top:16px; padding:14px 16px; border-radius:14px; border:1px solid var(--line); }
+    .msg.err{ background:var(--dangerbg); border-color:#fecaca; color:var(--danger); }
+    .msg.ok{ background:var(--okbg); border-color:#bbf7d0; color:#166534; }
+    table{ width:100%; border-collapse:collapse; margin-top:12px; overflow:auto; display:block; }
+    th,td{ padding:10px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+    th{ background:#f1f5f9; text-align:left; font-weight:700; }
+    .sub{ color:var(--muted); margin-top:6px; }
+    .sectionTitle{ margin-top:18px; font-weight:800; }
+    .formRow{ display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; }
+    .formRow input{ max-width:340px; }
+    .right{ margin-left:auto; }
     /* Modal */
-    .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:99;}
-    .modal{background:#fff;border-radius:18px;max-width:520px;width:100%;padding:18px;box-shadow:0 18px 40px rgba(0,0,0,.25);}
-    .modal h3{margin:0 0 8px;}
-    .modal p{margin:0 0 14px;color:var(--muted);}
-    .modal .actions{display:flex;gap:10px;justify-content:flex-end;}
-    .btnGhost{background:#e2e8f0;color:#0f172a;}
+    .modal-backdrop{ position:fixed; inset:0; background:rgba(2,6,23,.45); display:none; align-items:center; justify-content:center; padding:18px; }
+    .modal{ background:#fff; width:min(520px, 100%); border-radius:18px; border:1px solid var(--line); box-shadow:0 18px 50px rgba(2,6,23,.30); padding:18px; }
+    .modal h3{ margin:0 0 8px; }
+    .modal p{ margin:0 0 14px; color:#334155; }
+    .modal .actions{ display:flex; justify-content:flex-end; gap:10px; }
+    .btn-secondary{ background:#e2e8f0; color:#0f172a; }
   </style>
 </head>
 <body>
@@ -35,149 +39,169 @@
     <h1>Registro de Welcome Packs</h1>
 
     <div class="card">
-      <h2 style="margin:0 0 12px;font-size:22px;">1) Buscar abono</h2>
+      <h2 style="margin:0 0 12px;">1) Buscar abono</h2>
+
       <div class="row">
         <input id="rutInput" placeholder="Ingresa RUT abonado o comprador (con o sin guión)" />
         <button id="btnBuscar">Buscar</button>
       </div>
       <div class="tip">Tip: acepta RUT con o sin puntos/guión.</div>
 
-      <div id="msg"></div>
-
-      <div id="groupBox" style="display:none;">
-        <div class="card" style="margin-top:14px;background:#fbfbfc;">
-          <div id="groupHeader" style="font-weight:700;margin-bottom:8px;"></div>
-          <div id="groupSummary" class="summary"></div>
-          <table>
-            <thead>
-              <tr>
-                <th>Rut</th><th>Nombre</th><th>Categoría</th><th>Tribuna</th><th>Sector</th>
-              </tr>
-            </thead>
-            <tbody id="groupTbody"></tbody>
-          </table>
-          <div id="groupStatus"></div>
-        </div>
-      </div>
+      <div id="out"></div>
     </div>
   </div>
 
-  <!-- MODAL -->
-  <div class="modalOverlay" id="modalOverlay">
+  <!-- Modal -->
+  <div class="modal-backdrop" id="modalBackdrop">
     <div class="modal">
       <h3 id="modalTitle">Error</h3>
       <p id="modalText"></p>
       <div class="actions">
-        <button class="btnGhost" id="modalClose">Cerrar</button>
+        <button class="btn-secondary" id="modalClose">Cerrar</button>
       </div>
     </div>
   </div>
 
 <script>
-  const $ = (id)=>document.getElementById(id);
-  const rutInput = $("rutInput");
-  const btnBuscar = $("btnBuscar");
-  const msg = $("msg");
-  const groupBox = $("groupBox");
-  const groupHeader = $("groupHeader");
-  const groupSummary = $("groupSummary");
-  const groupTbody = $("groupTbody");
-  const groupStatus = $("groupStatus");
+  const $ = (id) => document.getElementById(id);
 
-  const modalOverlay = $("modalOverlay");
-  const modalTitle = $("modalTitle");
-  const modalText = $("modalText");
-  const modalClose = $("modalClose");
+  let lastBuscar = null;
 
   function showModal(title, text){
-    modalTitle.textContent = title || "Aviso";
-    modalText.textContent = text || "";
-    modalOverlay.style.display = "flex";
+    $("modalTitle").textContent = title;
+    $("modalText").textContent = text;
+    $("modalBackdrop").style.display = "flex";
   }
-  modalClose.onclick = ()=> modalOverlay.style.display="none";
-  modalOverlay.addEventListener("click",(e)=>{
-    if(e.target===modalOverlay) modalOverlay.style.display="none";
-  });
+  function hideModal(){ $("modalBackdrop").style.display = "none"; }
 
-  function setMsg(type, text){
-    msg.innerHTML = "";
-    if(!text) return;
-    const div = document.createElement("div");
-    div.className = type==="ok" ? "ok" : "alert";
-    div.textContent = text;
-    msg.appendChild(div);
-  }
+  $("modalClose").onclick = hideModal;
+  $("modalBackdrop").addEventListener("click", (e)=>{ if(e.target.id==="modalBackdrop") hideModal(); });
 
-  function renderGroup(data){
-    groupBox.style.display = "block";
-    groupTbody.innerHTML = "";
-    groupHeader.textContent =
-      `Estado: ${data.status} · RUT buscado: ${data.buscado.rut} · Nombre: ${data.buscado.nombre || "-"}`;
-    groupSummary.textContent =
-      `Comprador: ${data.comprador.nombre || "-"} (${data.comprador.rut}) · Resumen packs: ${data.resumen.join(", ")}`;
+  function renderBuscar(data){
+    const out = $("out");
+    out.innerHTML = "";
 
-    data.miembros.forEach(m=>{
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${m.rut}</td>
-        <td>${m.nombre || ""}</td>
-        <td>${m.categoria || ""}</td>
-        <td>${m.tribuna || ""}</td>
-        <td>${m.sector || ""}</td>
+    if (data.status === "NO_ENCONTRADO") {
+      out.innerHTML = `<div class="msg err">No se encontró el RUT en la base.</div>`;
+      return;
+    }
+    if (data.status === "ERROR") {
+      out.innerHTML = `<div class="msg err">Error: ${data.error || "desconocido"}</div>`;
+      return;
+    }
+
+    const encabezado = `
+      <div class="msg">
+        <div><b>Estado:</b> ${data.status} · <b>RUT buscado:</b> ${data.buscado?.rut || ""} · <b>Nombre:</b> ${data.buscado?.nombre || ""}</div>
+        <div class="sub">
+          <b>Comprador:</b> ${data.comprador?.nombre || ""} (${data.comprador?.rut || ""})
+          · <b>Resumen packs:</b> ${(data.resumen || []).join(" · ")}
+        </div>
+      </div>
+    `;
+    const tabla = `
+      <table>
+        <thead>
+          <tr><th>Rut</th><th>Nombre</th><th>Categoría</th><th>Tribuna</th><th>Sector</th></tr>
+        </thead>
+        <tbody>
+          ${(data.miembros || []).map(m => `
+            <tr>
+              <td>${m.rut || ""}</td>
+              <td>${m.nombre || ""}</td>
+              <td>${m.categoria || ""}</td>
+              <td>${m.tribuna || ""}</td>
+              <td>${m.sector || ""}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+
+    let entregaInfo = "";
+    if (data.status === "YA_ENTREGADO" && data.entrega) {
+      entregaInfo = `<div class="msg ok" style="margin-top:12px;">
+        <b>Ya entregado</b> · ${data.entrega.fecha_iso || ""}<br/>
+        <b>Receptor:</b> ${data.entrega.nombre_receptor || ""} (${data.entrega.rut_receptor || ""})
+      </div>`;
+    }
+
+    let form = "";
+    if (data.status === "PENDIENTE") {
+      form = `
+        <div class="sectionTitle">Datos del receptor</div>
+        <div class="formRow">
+          <input id="rutReceptor" placeholder="RUT receptor (con o sin guión)" />
+          <input id="nombreReceptor" placeholder="Nombre receptor" />
+          <button id="btnGuardar" class="right">Guardar entrega</button>
+        </div>
       `;
-      groupTbody.appendChild(tr);
-    });
+    }
 
-    groupStatus.innerHTML = "";
-    if(data.status === "YA_ENTREGADO"){
-      const div = document.createElement("div");
-      div.className = "ok";
-      div.textContent = "Welcome packs ya fueron entregados para este grupo (según base).";
-      groupStatus.appendChild(div);
+    out.innerHTML = encabezado + tabla + entregaInfo + form;
+
+    if (data.status === "PENDIENTE") {
+      $("btnGuardar").onclick = guardarEntrega;
     }
   }
 
   async function buscar(){
-    const rut = rutInput.value.trim();
-    setMsg("", "");
-    groupBox.style.display = "none";
+    const rut = $("rutInput").value.trim();
+    if (!rut) return;
 
-    if(!rut){
-      showModal("Falta RUT", "Ingresa un RUT para buscar.");
-      return;
-    }
-
-    btnBuscar.disabled = true;
+    $("out").innerHTML = `<div class="msg">Buscando...</div>`;
     try{
-      const url = `/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`;
-      const res = await fetch(url);
+      const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
       const data = await res.json();
-
-      if(data.status === "NO_ENCONTRADO"){
-        showModal("No encontrado", "No se encontró el RUT en la base.");
-        return;
-      }
-      if(data.status === "SIN_GRUPO"){
-        showModal("Sin grupo", "Se encontró el RUT, pero no se pudo armar el grupo del comprador.");
-        return;
-      }
-      if(data.status === "ERROR"){
-        showModal("Error", data.error || "Error desconocido");
-        return;
-      }
-
-      renderGroup(data);
+      lastBuscar = data;
+      renderBuscar(data);
     }catch(e){
-      showModal("Error al cargar", String(e?.message || e));
-    }finally{
-      btnBuscar.disabled = false;
+      $("out").innerHTML = `<div class="msg err">Error al cargar: ${e?.message || e}</div>`;
     }
   }
 
-  btnBuscar.onclick = buscar;
-  rutInput.addEventListener("keydown",(e)=>{
-    if(e.key==="Enter") buscar();
-  });
+  async function guardarEntrega(){
+    const rut_receptor = $("rutReceptor").value.trim();
+    const nombre_receptor = $("nombreReceptor").value.trim();
+
+    if (!rut_receptor || !nombre_receptor) {
+      showModal("Faltan datos", "Completa RUT receptor y Nombre receptor.");
+      return;
+    }
+
+    try{
+      const res = await fetch(`/.netlify/functions/entregar`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          rut_busqueda: lastBuscar?.buscado?.rut || $("rutInput").value.trim(),
+          rut_receptor,
+          nombre_receptor
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.status === "YA_ENTREGADO") {
+          showModal("Ya entregado", "Este grupo ya registra entrega.");
+          // refresca búsqueda
+          await buscar();
+          return;
+        }
+        showModal("Error", data.error || "No se pudo guardar.");
+        return;
+      }
+
+      showModal("OK", "Entrega guardada correctamente.");
+      await buscar();
+    }catch(e){
+      showModal("Error", e?.message || String(e));
+    }
+  }
+
+  $("btnBuscar").onclick = buscar;
+  $("rutInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") buscar(); });
 </script>
 </body>
 </html>
