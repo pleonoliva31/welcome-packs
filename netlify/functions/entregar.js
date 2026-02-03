@@ -1,52 +1,84 @@
 // netlify/functions/entregar.js
-const { json, normalizeRut, appendLog, readAllLogs } = require("./_log_utils");
+const { json, okCors, normalizeRut } = require("./_log_utils");
+const { createClient } = require("@netlify/blobs");
+
+function getStore() {
+  const siteID = process.env.BLOBS_SITE_ID;
+  const token = process.env.BLOBS_TOKEN;
+  if (!siteID || !token) {
+    throw new Error(
+      "Netlify Blobs no configurado. Falta BLOBS_SITE_ID o BLOBS_TOKEN."
+    );
+  }
+  const client = createClient({ siteID, token });
+  return client.getStore("welcome-pack-logs"); // nombre del store
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+// clave por grupo: rut_comprador normalizado
+function groupKey(rutComprador) {
+  return normalizeRut(rutComprador);
+}
 
 exports.handler = async (event) => {
-  try {
-    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-    if (event.httpMethod !== "POST") return json(405, { status: "ERROR", error: "Use POST" });
+  if (event.httpMethod === "OPTIONS") return okCors();
+  if (event.httpMethod !== "POST") return json(405, { status: "ERROR", error: "Usa POST" });
 
+  try {
     const body = JSON.parse(event.body || "{}");
-    const rutBuscado = normalizeRut(body.rut_busqueda || body.rut || "");
+
+    // datos mínimos
+    const rutComprador = normalizeRut(body.rut_comprador || "");
     const rutReceptor = normalizeRut(body.rut_receptor || "");
     const nombreReceptor = String(body.nombre_receptor || "").trim();
 
-    if (!rutBuscado) return json(400, { status: "ERROR", error: "Falta rut_busqueda" });
-    if (!rutReceptor || !nombreReceptor) return json(400, { status: "ERROR", error: "Falta rut_receptor o nombre_receptor" });
+    // opcional: para auditoría
+    const rutBuscado = normalizeRut(body.rut_buscado || "");
+    const nombreBuscado = String(body.nombre_buscado || "").trim();
 
-    // Regla: receptor debe pertenecer al grupo → eso lo valida la UI con /buscar,
-    // pero lo reforzamos aquí si mandas también miembros del grupo.
+    // detalle del grupo (miembros y resumen) opcional pero recomendado para snapshot
     const miembros = Array.isArray(body.miembros) ? body.miembros : [];
-    if (miembros.length) {
-      const ok = miembros.some((m) => normalizeRut(m.rut) === rutReceptor);
-      if (!ok) {
-        return json(200, {
-          status: "ERROR_RECEPTOR",
-          error: "El RUT ingresado no corresponde a este abono",
-        });
-      }
+    const resumen = Array.isArray(body.resumen) ? body.resumen : [];
+
+    if (!rutComprador) return json(400, { status: "ERROR", error: "Falta rut_comprador" });
+    if (!rutReceptor) return json(400, { status: "ERROR", error: "Falta rut_receptor" });
+    if (!nombreReceptor) return json(400, { status: "ERROR", error: "Falta nombre_receptor" });
+
+    const store = getStore();
+    const key = groupKey(rutComprador);
+
+    // leer estado actual del grupo
+    const existingRaw = await store.get(key);
+    const existing = existingRaw ? JSON.parse(existingRaw) : null;
+
+    // Si ya entregado, no permitir doble
+    if (existing?.entregado === true) {
+      return json(200, {
+        status: "YA_ENTREGADO",
+        message: "Este grupo ya registra entrega.",
+        registro: existing,
+      });
     }
 
-    // Evitar doble entrega: revisamos logs previos por rut_busqueda
-    const logs = await readAllLogs(5000);
-    const ya = logs.find((l) => normalizeRut(l.rut_busqueda) === rutBuscado);
-    if (ya) {
-      return json(200, { status: "YA_ENTREGADO", existente: ya });
-    }
-
-    const entry = {
-      ts: Date.now(),
-      rut_busqueda: rutBuscado,
+    const registro = {
+      rut_comprador: rutComprador,
       rut_receptor: rutReceptor,
       nombre_receptor: nombreReceptor,
-      // opcional: info de resumen/categorías para la tabla admin
-      comprador_rut: normalizeRut(body.comprador_rut || ""),
-      comprador_nombre: String(body.comprador_nombre || "").trim(),
-      detalle_categorias: body.detalle_categorias || null,
+      rut_buscado: rutBuscado,
+      nombre_buscado: nombreBuscado,
+      miembros,
+      resumen,
+      entregado: true,
+      created_at: nowIso(),
+      updated_at: nowIso(),
     };
 
-    await appendLog(entry);
-    return json(200, { status: "OK", saved: entry });
+    await store.set(key, JSON.stringify(registro));
+
+    return json(200, { status: "OK", registro });
   } catch (e) {
     return json(500, { status: "ERROR", error: String(e?.message || e) });
   }
