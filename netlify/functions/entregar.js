@@ -46,7 +46,7 @@ exports.handler = async (event) => {
     if (!nombre_receptor) return json(400, { status: "ERROR", error: "Falta nombre_receptor" });
 
     // ✅ FORZADO con credenciales
-    const store = getStore(STORE_NAME, { siteID, token });
+ const store = getStore({ name: STORE_NAME, siteID, token });
 
     const existing = await readBlobText(store);
     const lines = existing.split(/\r?\n/).filter(Boolean);
