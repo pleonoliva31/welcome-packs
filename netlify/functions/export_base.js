@@ -1,44 +1,29 @@
 // netlify/functions/export_base.js
-export const handler = async () => {
+const { json, okCors, parseCsvSemicolon, mapRowFromCsv, normalizeRut } = require("./_log_utils");
+
+async function loadCsv(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`No pude descargar CSV. HTTP ${res.status}`);
+  return await res.text();
+}
+
+exports.handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") return okCors();
+
   try {
-    const url = process.env.BASE_CSV_URL;
-    if (!url) return json({ ok:false, error:"NO_BASE_URL" }, 500);
+    const baseUrl = process.env.BASE_CSV_URL;
+    if (!baseUrl) return json(500, { status: "ERROR", error: "Falta BASE_CSV_URL" });
 
-    const r = await fetch(url, { cache:"no-store" });
-    if (!r.ok) return json({ ok:false, error:"CSV_FETCH_ERROR" }, 500);
-    const csv = await r.text();
+    const csv = await loadCsv(baseUrl);
+    const { rows } = parseCsvSemicolon(csv);
+    const mapped = rows.map(mapRowFromCsv).map((m) => ({
+      ...m,
+      rut: normalizeRut(m.rut),
+      rut_comprador: normalizeRut(m.rut_comprador),
+    }));
 
-    const rows = parseBase(csv);
-    return json(rows);
+    return json(200, { status: "OK", rows: mapped, total: mapped.length });
   } catch (e) {
-    return json({ ok:false, error:String(e) }, 500);
+    return json(500, { status: "ERROR", error: String(e?.message || e) });
   }
 };
-
-function json(obj, status=200) {
-  return { statusCode: status, headers: { "Content-Type":"application/json" }, body: JSON.stringify(obj) };
-}
-
-function parseBase(text) {
-  const lines = text.replace(/\r/g,"").split("\n").filter(Boolean);
-  if (!lines.length) return [];
-  const delim = lines[0].includes(";") ? ";" : ",";
-  const header = lines[0].split(delim).map(h => h.toLowerCase().replace(/\s+/g,"_").replace(/[^\w]/g,""));
-
-  return lines.slice(1).map(line => {
-    const cols = line.split(delim);
-    const o = {};
-    header.forEach((h,i)=> o[h] = (cols[i] || "").trim());
-
-    return {
-      rut:             o.rut || "",
-      nombre:          o.nombre || o["nombre_completo"] || "",
-      categoria:       o.categoria || o["welcome_pack"] || "",
-      tribuna:         o.tribuna || "",
-      sector:          o.sector || "",
-      entregado:       o.entregado || "",
-      fecha_entrega:   o.fecha_entrega || "",
-      rut_receptor:    o.rut_receptor || ""
-    };
-  });
-}
