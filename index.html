@@ -63,6 +63,8 @@
   </div>
 
 <script>
+  let currentData = null;
+let rutBuscadoActual = null;
   const $ = (id) => document.getElementById(id);
 
   let lastBuscar = null;
@@ -145,20 +147,27 @@
     }
   }
 
-  async function buscar(){
-    const rut = $("rutInput").value.trim();
-    if (!rut) return;
+async function buscar(){
+  const rut = $("rutInput").value.trim();
+  if (!rut) return;
 
-    $("out").innerHTML = `<div class="msg">Buscando...</div>`;
-    try{
-      const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
-      const data = await res.json();
-      lastBuscar = data;
-      renderBuscar(data);
-    }catch(e){
-      $("out").innerHTML = `<div class="msg err">Error al cargar: ${e?.message || e}</div>`;
-    }
+  // ✅ Guarda el RUT buscado para usarlo en "guardarEntrega"
+  rutBuscadoActual = rut;
+
+  $("out").innerHTML = `<div class="msg">Buscando...</div>`;
+  try{
+    const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
+    const data = await res.json();
+
+    // ✅ Guarda la última data para usarla después (ej: validaciones, UI, etc.)
+    currentData = data;
+    lastBuscar = data;
+
+    renderBuscar(data);
+  }catch(e){
+    $("out").innerHTML = `<div class="msg err">Error al cargar: ${e?.message || e}</div>`;
   }
+}
 
   async function guardarEntrega(){
     const rut_receptor = $("rutReceptor").value.trim();
