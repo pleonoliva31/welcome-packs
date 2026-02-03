@@ -1,72 +1,84 @@
 // netlify/functions/buscar.js
-import { getLog } from "./_log_utils.js";
+import {
+  json,
+  normalizeRut,
+  fetchCsvText,
+  parseCsvSemicolon,
+  getStores,
+} from "./_log_utils.js";
+
+function pick(obj, key) {
+  return obj?.[key] ?? "";
+}
+
+function groupKeyFromRow(row) {
+  const rutComprador = normalizeRut(pick(row, "Rut Comprador"));
+  const rut = normalizeRut(pick(row, "Rut"));
+  return rutComprador || rut;
+}
+
+function mapRow(row) {
+  return {
+    rut: normalizeRut(pick(row, "Rut")),
+    nombre: pick(row, "Nombre Completo") || pick(row, "Nombre"),
+    categoria: pick(row, "Welcome Pack") || pick(row, "Categoría"),
+    tribuna: pick(row, "Tribuna"),
+    sector: pick(row, "Sector"),
+    rut_comprador: normalizeRut(pick(row, "Rut Comprador")),
+    nombre_comprador: pick(row, "Nombre Comprador"),
+  };
+}
 
 export const handler = async (event) => {
   try {
-    const q = normRut((event.queryStringParameters || {}).rut || "");
+    const rutQuery = normalizeRut(event.queryStringParameters?.rut || "");
+    if (!rutQuery) return json(400, { status: "ERROR", error: "Falta rut" });
+
     const baseUrl = process.env.BASE_CSV_URL;
-    if (!baseUrl) return json({ status: "NO_BASE" });
+    if (!baseUrl) return json(200, { status: "NO_BASE" });
 
-    const res = await fetch(baseUrl, { cache: "no-store" });
-    if (!res.ok) return json({ status: "ERROR_CSV" }, 500);
-    const csv = await res.text();
-    const rows = parseBase(csv);
+    const csvText = await fetchCsvText(baseUrl);
+    const { rows } = parseCsvSemicolon(csvText);
 
-    const grupo = findGrupo(rows, q);
-    if (!grupo) return json({ status: "NO_BASE" });
+    const mapped = rows.map(mapRow);
 
-    const log = await getLog();
-    const ya = log.some(x => normRut(x.rut_comprador) === normRut(grupo.comprador.rut_comprador));
+    const matches = mapped.filter((r) => r.rut === rutQuery || r.rut_comprador === rutQuery);
+    if (!matches.length) return json(200, { status: "NO_ENCONTRADO" });
 
-    return json({ status: ya ? "YA_ENTREGADO" : "PENDIENTE", grupo });
+    const groupKey = groupKeyFromRow(matches[0]);
+    const groupRows = mapped.filter((r) => groupKeyFromRow(r) === groupKey);
+
+    const { logStore } = await getStores();
+    const logRaw = (await logStore.get("log.json"))?.toString?.() || "";
+    const log = logRaw ? JSON.parse(logRaw) : [];
+
+    const yaEntregado = log.some((x) => String(x.group_key || "") === groupKey);
+
+    const resumenMap = {};
+    for (const r of groupRows) {
+      const cat = (r.categoria || "SIN_CATEGORIA").toUpperCase();
+      resumenMap[cat] = (resumenMap[cat] || 0) + 1;
+    }
+    const resumen = Object.entries(resumenMap).map(([k, v]) => `${v} - ${k}`);
+
+    const compradorRow = groupRows.find((r) => r.rut_comprador) || groupRows[0];
+
+    return json(200, {
+      status: yaEntregado ? "YA_ENTREGADO" : "PENDIENTE",
+      grupo: {
+        rut_comprador: compradorRow.rut_comprador || groupKey,
+        nombre_comprador: compradorRow.nombre_comprador || "",
+      },
+      miembros: groupRows.map((r) => ({
+        rut: r.rut,
+        nombre: r.nombre,
+        categoria: r.categoria,
+        tribuna: r.tribuna,
+        sector: r.sector,
+      })),
+      resumen,
+    });
   } catch (e) {
-    return json({ status: "ERROR", error: String(e) }, 500);
+    return json(200, { status: "ERROR", error: String(e?.message || e) });
   }
 };
-
-// utils
-function json(obj, status = 200) {
-  return { statusCode: status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) };
-}
-function normRut(s) { return (s || "").toUpperCase().replace(/[.\-]/g, "").trim(); }
-
-function parseBase(text) {
-  const lines = text.replace(/\r/g, "").split("\n").filter(Boolean);
-  if (!lines.length) return [];
-  const delim = lines[0].includes(";") ? ";" : ",";
-  const header = lines[0].split(delim).map(h => h.toLowerCase().replace(/\s+/g,"_").replace(/[^\w]/g,""));
-
-  return lines.slice(1).map(line => {
-    const cols = line.split(delim); const o = {};
-    header.forEach((h,i)=> o[h] = (cols[i] || "").trim());
-    return {
-      rut:               o.rut || "",
-      nombre:            o.nombre || o["nombre_completo"] || "",
-      categoria:         o.categoria || o["welcome_pack"] || "",
-      tribuna:           o.tribuna || "",
-      sector:            o.sector || "",
-      rut_comprador:     o.rut_comprador || o["rutcomprador"] || "",
-      nombre_comprador:  o.nombre_comprador || ""
-    };
-  });
-}
-
-function findGrupo(rows, qRut) {
-  if (!qRut) return null;
-  const hit = rows.find(r => normRut(r.rut) === qRut || normRut(r.rut_comprador) === qRut);
-  if (!hit) return null;
-
-  const rutComprador = hit.rut_comprador || hit.rut;
-  const miembros = rows.filter(r =>
-    normRut(r.rut_comprador) === normRut(rutComprador) ||
-    normRut(r.rut) === normRut(rutComprador)
-  );
-
-  return {
-    comprador: {
-      rut_comprador: rutComprador,
-      nombre_comprador: hit.nombre_comprador || ""
-    },
-    miembros
-  };
-}
