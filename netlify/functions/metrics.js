@@ -16,7 +16,7 @@ function getStore() {
   throw new Error("No se pudo inicializar @netlify/blobs (sin getStore/createClient).");
 }
 
-// CSV parser simple pero soporta comillas (para log con nombres)
+// CSV parser simple pero soporta comillas
 function parseCsv(text, delimiter) {
   const rows = [];
   let row = [];
@@ -57,7 +57,6 @@ function parseCsv(text, delimiter) {
     rows.push(row.map(x => x.trim()));
   }
 
-  // limpia líneas vacías
   return rows.filter(r => r.some(c => String(c || "").trim() !== ""));
 }
 
@@ -65,6 +64,13 @@ async function loadText(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`No pude descargar base. HTTP ${res.status}`);
   return await res.text();
+}
+
+// ✅ Macro tribuna: LEPE / FOUILLIOUX / LIVINGSTONE / PRIETO (sin alto/bajo/medio)
+function macroTribuna(t) {
+  const s = String(t || "").trim().toUpperCase();
+  if (!s) return "SIN_TRIBUNA";
+  return s.split(/\s+/)[0]; // primera palabra
 }
 
 exports.handler = async (event) => {
@@ -78,7 +84,7 @@ exports.handler = async (event) => {
     // 1) Base (packs totales)
     const baseCsv = await loadText(baseUrl);
     const baseRows = parseCsv(baseCsv, ";");
-    if (baseRows.length < 2) return json(200, { status: "OK", total_base: 0 });
+    if (baseRows.length < 2) return json(200, { status: "OK", total_base: 0, total_entregados: 0, pct_total: 0, por_categoria: [], por_ubicacion: [] });
 
     const baseHeaders = baseRows[0];
     const baseData = baseRows.slice(1);
@@ -86,15 +92,13 @@ exports.handler = async (event) => {
     const idxRut = baseHeaders.indexOf("Rut");
     const idxCat = baseHeaders.indexOf("Welcome Pack");
     const idxTrib = baseHeaders.indexOf("Tribuna");
-    const idxSector = baseHeaders.indexOf("Sector");
 
     if (idxRut === -1) throw new Error("Base CSV sin columna 'Rut'.");
 
     const packsBase = baseData.map(r => ({
       rut: normalizeRut(r[idxRut] || ""),
       categoria: String(r[idxCat] || "").trim().toUpperCase(),
-      tribuna: String(r[idxTrib] || "").trim(),
-      sector: String(r[idxSector] || "").trim(),
+      tribuna: String(r[idxTrib] || "").trim()
     })).filter(p => p.rut);
 
     const totalBase = packsBase.length;
@@ -103,7 +107,7 @@ exports.handler = async (event) => {
     const store = getStore();
     const logText = (await store.get(LOG_KEY, { type: "text" })) || "";
     const logRows = parseCsv(logText, ",");
-    let entregadosSet = new Set();
+    const entregadosSet = new Set();
 
     if (logRows.length >= 2) {
       const h = logRows[0].map(x => x.trim());
@@ -137,16 +141,16 @@ exports.handler = async (event) => {
       }))
       .sort((a,b) => b.base - a.base);
 
-    // 4) % por tribuna/sector (pack)
-    const tsAgg = {}; // {"TRIBUNA||SECTOR":{...}}
+    // 4) ✅ % por UBICACIÓN (macro tribuna)
+    const ubAgg = {}; // {UBICACION:{ubicacion, base, entregados}}
     for (const p of packsBase) {
-      const key = `${p.tribuna}||${p.sector}`;
-      tsAgg[key] ||= { tribuna: p.tribuna, sector: p.sector, base: 0, entregados: 0 };
-      tsAgg[key].base++;
-      if (entregadosSet.has(p.rut)) tsAgg[key].entregados++;
+      const ubicacion = macroTribuna(p.tribuna);
+      ubAgg[ubicacion] ||= { ubicacion, base: 0, entregados: 0 };
+      ubAgg[ubicacion].base++;
+      if (entregadosSet.has(p.rut)) ubAgg[ubicacion].entregados++;
     }
 
-    const porTribunaSector = Object.values(tsAgg)
+    const porUbicacion = Object.values(ubAgg)
       .map(v => ({ ...v, pct: v.base ? v.entregados / v.base : 0 }))
       .sort((a,b) => b.base - a.base);
 
@@ -156,7 +160,7 @@ exports.handler = async (event) => {
       total_entregados: totalEntregados,
       pct_total: pctTotal,
       por_categoria: porCategoria,
-      por_tribuna_sector: porTribunaSector,
+      por_ubicacion: porUbicacion,
       updated_at: new Date().toISOString(),
     });
 
