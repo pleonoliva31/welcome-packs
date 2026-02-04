@@ -34,6 +34,7 @@
       border-radius:16px;padding:10px 12px;
       display:flex;align-items:center;justify-content:center;
       gap:8px;font-weight:700;
+      user-select:none;
     }
     .tabbtn.active{background:#0f172a;color:#fff;}
     .hidden{display:none;}
@@ -113,26 +114,27 @@
     <section id="view-exportar" class="card hidden">
       <h2 style="margin:0 0 10px;">Exportar</h2>
       <div class="row">
-        <button onclick="window.open('/.netlify/functions/export_base','_blank')">Descargar base (CSV)</button>
-        <button onclick="window.open('/.netlify/functions/export_log','_blank')">Descargar entregas (CSV)</button>
-        <button onclick="window.open('/.netlify/functions/export_pendientes','_blank')">Descargar pendientes (CSV)</button>
+        <button onclick="window.open('/.netlify/functions/export_base','_blank')">Descargar base (Excel)</button>
+        <button onclick="window.open('/.netlify/functions/export_log','_blank')">Descargar entregas (Excel)</button>
       </div>
       <div style="color:var(--muted);margin-top:10px;">
-        * “Pendientes” = grupos cuyo <b>rut_comprador</b> aún no está en el log de Blobs.
+        * Descargas pensadas para abrir directo en Excel.
       </div>
     </section>
 
-    <!-- REPORTE (placeholder simple: usa buscar + log si quieres luego) -->
+    <!-- REPORTE (placeholder) -->
     <section id="view-reporte" class="card hidden">
       <h2 style="margin:0 0 10px;">Reporte</h2>
-      <div style="color:var(--muted);">Si quieres, aquí armamos el buscador avanzado + tabla consolidada.</div>
+      <div style="color:var(--muted);">Si quieres, acá armamos reporte avanzado (por hora, por tribuna, por receptor, etc.).</div>
     </section>
 
     <!-- METRICAS -->
     <section id="view-metricas" class="card hidden">
-      <h2 style="margin:0 0 10px;">Métricas</h2>
-      <button id="btnMetrics">Cargar métricas</button>
-      <div id="metricsBox" style="margin-top:10px;"></div>
+      <div class="row" style="justify-content:space-between;align-items:center;">
+        <h2 style="margin:0;">Métricas (resumen)</h2>
+        <button id="btnMetrics">Actualizar</button>
+      </div>
+      <div id="metricsOut" style="margin-top:12px;"></div>
     </section>
   </div>
 
@@ -172,6 +174,11 @@
   modalClose.onclick = ()=> modalOverlay.style.display="none";
   modalOverlay.addEventListener("click",(e)=>{ if(e.target===modalOverlay) modalOverlay.style.display="none"; });
 
+  function esc(s){
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+  function pct(x){ return `${Math.round((x||0)*1000)/10}%`; } // 1 decimal
+
   // tabs
   const views = {
     registrar: $("view-registrar"),
@@ -186,6 +193,9 @@
       btn.classList.add("active");
       Object.values(views).forEach(v=>v.classList.add("hidden"));
       views[btn.dataset.tab].classList.remove("hidden");
+
+      // ✅ Auto-cargar métricas al entrar
+      if(btn.dataset.tab === "metricas") cargarMetricas();
     };
   });
 
@@ -198,6 +208,7 @@
   const groupSummary = $("groupSummary");
   const groupTbody = $("groupTbody");
   const alreadyBox = $("alreadyBox");
+  const formEntrega = $("formEntrega");
   const rutReceptor = $("rutReceptor");
   const nombreReceptor = $("nombreReceptor");
   const btnGuardar = $("btnGuardar");
@@ -222,19 +233,26 @@
     groupHeader.textContent =
       `Estado: ${data.status} · RUT buscado: ${data.buscado.rut} · Nombre: ${data.buscado.nombre || "-"}`;
     groupSummary.textContent =
-      `Comprador: ${data.comprador.nombre || "-"} (${data.comprador.rut}) · Resumen packs: ${data.resumen.join(", ")}`;
+      `Comprador: ${data.comprador.nombre || "-"} (${data.comprador.rut}) · Resumen packs: ${(data.resumen||[]).join(", ")}`;
 
-    data.miembros.forEach(m=>{
+    (data.miembros || []).forEach(m=>{
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${m.rut}</td><td>${m.nombre||""}</td><td>${m.categoria||""}</td><td>${m.tribuna||""}</td><td>${m.sector||""}</td>`;
+      tr.innerHTML = `<td>${esc(m.rut)}</td><td>${esc(m.nombre||"")}</td><td>${esc(m.categoria||"")}</td><td>${esc(m.tribuna||"")}</td><td>${esc(m.sector||"")}</td>`;
       groupTbody.appendChild(tr);
     });
 
-    if(data.status === "YA_ENTREGADO"){
+    // ✅ Ocultar formulario si YA_ENTREGADO
+    const isEntregado = (data.status === "YA_ENTREGADO");
+    formEntrega.style.display = isEntregado ? "none" : "block";
+
+    if(isEntregado){
       const div = document.createElement("div");
       div.className = "ok";
-      div.textContent = "Este grupo ya aparece como ENTREGADO (según base).";
+      div.textContent = "Este grupo ya aparece como ENTREGADO.";
       alreadyBox.appendChild(div);
+    } else {
+      rutReceptor.value = "";
+      nombreReceptor.value = "";
     }
   }
 
@@ -283,19 +301,27 @@
       showModal("Sin grupo", "Primero busca un RUT.");
       return;
     }
+    if(lastData.status === "YA_ENTREGADO"){
+      showModal("Ya entregado", "Este grupo ya aparece como entregado.");
+      return;
+    }
+
+    const rutBuscado = rutBuscar.value.trim();
 
     const body = {
-      rut_comprador: lastData.comprador.rut,
+      rut_buscado: rutBuscado,
       rut_receptor: rutReceptor.value.trim(),
-      nombre_receptor: nombreReceptor.value.trim()
+      receptor_nombre: nombreReceptor.value.trim()
     };
 
-    if(!body.rut_receptor || !body.nombre_receptor){
+    if(!body.rut_receptor || !body.receptor_nombre){
       showModal("Faltan datos", "Completa RUT receptor y nombre receptor.");
       return;
     }
 
+    // ✅ bloqueo doble click
     btnGuardar.disabled = true;
+
     try{
       const res = await fetch("/.netlify/functions/entregar", {
         method:"POST",
@@ -305,7 +331,7 @@
       const data = await res.json();
 
       if(data.status === "YA_ENTREGADO"){
-        showModal("Ya entregado", "Este grupo ya tenía entrega registrada en el log.");
+        showModal("Ya entregado", "Este grupo ya tenía entrega registrada.");
         return;
       }
       if(data.status !== "OK"){
@@ -313,7 +339,11 @@
         return;
       }
 
-      showModal("Listo ✅", "Entrega registrada correctamente.");
+      showModal("Listo ✅", "Entrega guardada correctamente.");
+
+      // ✅ refrescar estado automáticamente
+      await buscar();
+
       rutReceptor.value = "";
       nombreReceptor.value = "";
     }catch(e){
@@ -355,10 +385,10 @@
       items.forEach(x=>{
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${x.rut_comprador||""}</td>
-          <td>${x.rut_receptor||""}</td>
-          <td>${x.nombre_receptor||""}</td>
-          <td>${x.fecha_iso||""}</td>
+          <td>${esc(x.rut_comprador||"")}</td>
+          <td>${esc(x.rut_receptor||"")}</td>
+          <td>${esc(x.nombre_receptor||"")}</td>
+          <td>${esc(x.fecha_iso||"")}</td>
         `;
         logTbody.appendChild(tr);
       });
@@ -373,26 +403,106 @@
 
   btnLog.onclick = cargarLog;
 
-  // Métricas tab
+  // Métricas
   const btnMetrics = $("btnMetrics");
-  const metricsBox = $("metricsBox");
-  btnMetrics.onclick = async ()=>{
-    metricsBox.innerHTML = "";
+  const metricsOut = $("metricsOut");
+  btnMetrics.onclick = cargarMetricas;
+
+  async function cargarMetricas(){
+    metricsOut.innerHTML = "Cargando...";
     btnMetrics.disabled = true;
+
     try{
       const res = await fetch("/.netlify/functions/metrics");
       const data = await res.json();
-      if(data.status !== "OK"){
-        metricsBox.innerHTML = `<div class="alert">${data.error || "No se pudo cargar métricas"}</div>`;
+
+      if(!res.ok || data.status !== "OK"){
+        metricsOut.innerHTML = `<div class="alert">Error: ${esc(data.error || "No se pudo cargar")}</div>`;
         return;
       }
-      metricsBox.innerHTML = `<div class="ok">Total entregas registradas: <b>${data.total_entregas}</b></div>`;
+
+      // Cards estilo “resumen”
+      let html = `
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+          <div style="padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;">
+            <div style="color:#64748b;font-weight:700;">Total abonados</div>
+            <div style="font-size:34px;font-weight:900;line-height:1.1;">${data.total_base}</div>
+          </div>
+
+          <div style="padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;">
+            <div style="color:#64748b;font-weight:700;">Entregados</div>
+            <div style="font-size:34px;font-weight:900;line-height:1.1;">${data.total_entregados}</div>
+          </div>
+
+          <div style="padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;">
+            <div style="color:#64748b;font-weight:700;">% Entrega</div>
+            <div style="font-size:34px;font-weight:900;line-height:1.1;">${pct(data.pct_total)}</div>
+          </div>
+        </div>
+      `;
+
+      // Tabla por categoría
+      html += `
+        <h3 style="margin:16px 0 8px;">Por categoría</h3>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Categoría</th>
+              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Entregados</th>
+              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Total</th>
+              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">% Entreg</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(data.por_categoria||[]).map(r => `
+              <tr>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.categoria)}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.entregados}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.base}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${pct(r.pct)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+
+      // Tabla por tribuna/sector (limitado para que no sea eterno)
+      const rows = (data.por_tribuna_sector || []).slice(0, 80);
+      html += `
+        <h3 style="margin:16px 0 8px;">Por tribuna / sector</h3>
+        <div style="color:#64748b;margin-bottom:8px;">Mostrando ${rows.length} filas (ordenado por total).</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Tribuna</th>
+              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Sector</th>
+              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Entregados</th>
+              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Total</th>
+              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">% Entreg</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.tribuna)}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.sector)}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.entregados}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.base}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${pct(r.pct)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+
+      metricsOut.innerHTML = html;
+
     }catch(e){
-      metricsBox.innerHTML = `<div class="alert">${String(e?.message || e)}</div>`;
+      metricsOut.innerHTML = `<div class="alert">${esc(String(e?.message || e))}</div>`;
     }finally{
       btnMetrics.disabled = false;
     }
-  };
+  }
 </script>
 </body>
 </html>
