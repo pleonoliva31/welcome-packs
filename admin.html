@@ -21,30 +21,46 @@
     .ok{padding:12px 14px;border-radius:14px;background:#dcfce7;color:var(--ok);border:1px solid #bbf7d0;margin-top:10px;}
     .hidden{display:none;}
 
-    /* Bottom tabs (con scroll horizontal por si no caben) */
+    /* Bottom tabs: 3 columnas, responsive, SIN scroll */
     .tabs{
       position:fixed;left:0;right:0;bottom:0;
       background:#fff;border-top:1px solid #e2e8f0;
-      display:flex;gap:10px;justify-content:flex-start;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:10px;
       padding:10px;
       z-index:50;
-
-      overflow-x:auto;
-      -webkit-overflow-scrolling:touch;
-      white-space:nowrap;
     }
-    .tabs::-webkit-scrollbar{display:none;}
 
     .tabbtn{
-      flex:0 0 auto;
-      min-width:150px;
+      width:100%;
       background:#f1f5f9;color:#0f172a;
-      border-radius:16px;padding:10px 12px;
-      display:inline-flex;align-items:center;justify-content:center;
-      gap:8px;font-weight:700;
+      border-radius:16px;
+      padding:12px 14px;
+      display:flex;align-items:center;justify-content:center;
+      gap:10px;
+      font-weight:800;
       user-select:none;
+      line-height:1;
+    }
+    .tabbtn span.label{
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
     .tabbtn.active{background:#0f172a;color:#fff;}
+
+    /* Desktop grande: pestañas más “grandes” visualmente */
+    @media (min-width: 900px){
+      .tabs{padding:12px 16px;gap:12px;}
+      .tabbtn{padding:14px 18px;border-radius:18px;font-size:18px;}
+    }
+
+    /* Mobile: compactar para que quepan perfecto */
+    @media (max-width: 420px){
+      .tabs{gap:8px;padding:8px;}
+      .tabbtn{padding:10px 10px;border-radius:14px;font-size:14px;gap:6px;}
+    }
 
     /* Modal */
     .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:99;}
@@ -118,9 +134,9 @@
 
   <!-- TABS ABAJO -->
   <div class="tabs">
-    <div class="tabbtn active" data-tab="registrar">📝 Registrar</div>
-    <div class="tabbtn" data-tab="exportar">⬇️ Exportar</div>
-    <div class="tabbtn" data-tab="metricas">📊 Métricas</div>
+    <div class="tabbtn active" data-tab="registrar"><span>📝</span><span class="label">Registrar</span></div>
+    <div class="tabbtn" data-tab="exportar"><span>⬇️</span><span class="label">Exportar</span></div>
+    <div class="tabbtn" data-tab="metricas"><span>📊</span><span class="label">Métricas</span></div>
   </div>
 
   <!-- MODAL -->
@@ -167,11 +183,16 @@
       document.querySelectorAll(".tabbtn").forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
       Object.values(views).forEach(v=>v.classList.add("hidden"));
-      views[btn.dataset.tab].classList.remove("hidden");
+      verifyView(btn.dataset.tab);
 
       if(btn.dataset.tab === "metricas") cargarMetricas();
     };
   });
+
+  function verifyView(tab){
+    if(!views[tab]) tab = "registrar";
+    views[tab].classList.remove("hidden");
+  }
 
   // registrar
   const rutBuscar = $("rutBuscar");
