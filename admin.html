@@ -19,25 +19,32 @@
     th{background:#f1f5f9;font-weight:700;position:sticky;top:0;}
     .alert{padding:12px 14px;border-radius:14px;background:#fee2e2;color:var(--danger);border:1px solid #fecaca;margin-top:10px;}
     .ok{padding:12px 14px;border-radius:14px;background:#dcfce7;color:var(--ok);border:1px solid #bbf7d0;margin-top:10px;}
+    .hidden{display:none;}
 
-    /* Bottom tabs */
+    /* Bottom tabs (con scroll horizontal) */
     .tabs{
       position:fixed;left:0;right:0;bottom:0;
       background:#fff;border-top:1px solid #e2e8f0;
-      display:flex;gap:10px;justify-content:center;
+      display:flex;gap:10px;justify-content:flex-start;
       padding:10px;
       z-index:50;
+
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      white-space:nowrap;
     }
+    .tabs::-webkit-scrollbar{display:none;}
+
     .tabbtn{
-      flex:1;max-width:220px;
+      flex:0 0 auto;
+      min-width:150px;
       background:#f1f5f9;color:#0f172a;
       border-radius:16px;padding:10px 12px;
-      display:flex;align-items:center;justify-content:center;
+      display:inline-flex;align-items:center;justify-content:center;
       gap:8px;font-weight:700;
       user-select:none;
     }
     .tabbtn.active{background:#0f172a;color:#fff;}
-    .hidden{display:none;}
 
     /* Modal */
     .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:99;}
@@ -122,7 +129,7 @@
       </div>
     </section>
 
-    <!-- REPORTE (placeholder) -->
+    <!-- REPORTE -->
     <section id="view-reporte" class="card hidden">
       <h2 style="margin:0 0 10px;">Reporte</h2>
       <div style="color:var(--muted);">Si quieres, acá armamos reporte avanzado (por hora, por tribuna, por receptor, etc.).</div>
@@ -187,6 +194,7 @@
     reporte: $("view-reporte"),
     metricas: $("view-metricas")
   };
+
   document.querySelectorAll(".tabbtn").forEach(btn=>{
     btn.onclick = ()=>{
       document.querySelectorAll(".tabbtn").forEach(b=>b.classList.remove("active"));
@@ -194,7 +202,7 @@
       Object.values(views).forEach(v=>v.classList.add("hidden"));
       views[btn.dataset.tab].classList.remove("hidden");
 
-      // ✅ Auto-cargar métricas al entrar
+      // Auto-cargar métricas al entrar
       if(btn.dataset.tab === "metricas") cargarMetricas();
     };
   });
@@ -202,7 +210,6 @@
   // registrar
   const rutBuscar = $("rutBuscar");
   const btnBuscar = $("btnBuscar");
-  const buscarMsg = $("buscarMsg");
   const groupBox = $("groupBox");
   const groupHeader = $("groupHeader");
   const groupSummary = $("groupSummary");
@@ -214,15 +221,6 @@
   const btnGuardar = $("btnGuardar");
 
   let lastData = null;
-
-  function setMsg(el, type, text){
-    el.innerHTML = "";
-    if(!text) return;
-    const div = document.createElement("div");
-    div.className = (type==="ok") ? "ok" : "alert";
-    div.textContent = text;
-    el.appendChild(div);
-  }
 
   function renderGroup(data){
     lastData = data;
@@ -241,7 +239,6 @@
       groupTbody.appendChild(tr);
     });
 
-    // ✅ Ocultar formulario si YA_ENTREGADO
     const isEntregado = (data.status === "YA_ENTREGADO");
     formEntrega.style.display = isEntregado ? "none" : "block";
 
@@ -258,7 +255,6 @@
 
   async function buscar(){
     const rut = rutBuscar.value.trim();
-    setMsg(buscarMsg, "", "");
     groupBox.style.display = "none";
     lastData = null;
 
@@ -272,18 +268,9 @@
       const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
       const data = await res.json();
 
-      if(data.status === "NO_ENCONTRADO"){
-        showModal("No encontrado", "No se encontró el RUT en la base.");
-        return;
-      }
-      if(data.status === "SIN_GRUPO"){
-        showModal("Sin grupo", "Se encontró el RUT, pero no se pudo armar el grupo del comprador.");
-        return;
-      }
-      if(data.status === "ERROR"){
-        showModal("Error", data.error || "Error desconocido");
-        return;
-      }
+      if(data.status === "NO_ENCONTRADO"){ showModal("No encontrado", "No se encontró el RUT en la base."); return; }
+      if(data.status === "SIN_GRUPO"){ showModal("Sin grupo", "Se encontró el RUT, pero no se pudo armar el grupo del comprador."); return; }
+      if(data.status === "ERROR"){ showModal("Error", data.error || "Error desconocido"); return; }
 
       renderGroup(data);
     }catch(e){
@@ -311,17 +298,15 @@
     const body = {
       rut_buscado: rutBuscado,
       rut_receptor: rutReceptor.value.trim(),
-      receptor_nombre: nombreReceptor.value.trim()
+      nombre_receptor: nombreReceptor.value.trim()
     };
 
-    if(!body.rut_receptor || !body.receptor_nombre){
+    if(!body.rut_receptor || !body.nombre_receptor){
       showModal("Faltan datos", "Completa RUT receptor y nombre receptor.");
       return;
     }
 
-    // ✅ bloqueo doble click
     btnGuardar.disabled = true;
-
     try{
       const res = await fetch("/.netlify/functions/entregar", {
         method:"POST",
@@ -340,8 +325,6 @@
       }
 
       showModal("Listo ✅", "Entrega guardada correctamente.");
-
-      // ✅ refrescar estado automáticamente
       await buscar();
 
       rutReceptor.value = "";
@@ -360,6 +343,15 @@
   const btnLog = $("btnLog");
   const logMsg = $("logMsg");
   const logTbody = $("logTbody");
+
+  function setMsg(el, type, text){
+    el.innerHTML = "";
+    if(!text) return;
+    const div = document.createElement("div");
+    div.className = (type==="ok") ? "ok" : "alert";
+    div.textContent = text;
+    el.appendChild(div);
+  }
 
   async function cargarLog(){
     setMsg(logMsg, "", "");
@@ -421,7 +413,6 @@
         return;
       }
 
-      // Cards estilo “resumen”
       let html = `
         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
           <div style="padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;">
@@ -441,7 +432,6 @@
         </div>
       `;
 
-      // Tabla por categoría
       html += `
         <h3 style="margin:16px 0 8px;">Por categoría</h3>
         <table style="width:100%;border-collapse:collapse;">
@@ -466,16 +456,13 @@
         </table>
       `;
 
-      // Tabla por tribuna/sector (limitado para que no sea eterno)
-      const rows = (data.por_tribuna_sector || []).slice(0, 80);
+      const rows = (data.por_ubicacion || []);
       html += `
-        <h3 style="margin:16px 0 8px;">Por tribuna / sector</h3>
-        <div style="color:#64748b;margin-bottom:8px;">Mostrando ${rows.length} filas (ordenado por total).</div>
+        <h3 style="margin:16px 0 8px;">Por ubicación</h3>
         <table style="width:100%;border-collapse:collapse;">
           <thead>
             <tr>
-              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Tribuna</th>
-              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Sector</th>
+              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Ubicación</th>
               <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Entregados</th>
               <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Total</th>
               <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">% Entreg</th>
@@ -484,8 +471,7 @@
           <tbody>
             ${rows.map(r => `
               <tr>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.tribuna)}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.sector)}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.ubicacion)}</td>
                 <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.entregados}</td>
                 <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.base}</td>
                 <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${pct(r.pct)}</td>
