@@ -66,6 +66,14 @@ async function loadText(url) {
   return await res.text();
 }
 
+// ✅ Limpia headers (BOM + trim + normaliza espacios)
+function cleanHeader(h) {
+  return String(h || "")
+    .replace(/^\uFEFF/, "")      // BOM
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function packCorresponde(packVal) {
   const p = String(packVal || "").trim().toUpperCase();
   return (p === "SI" || p === "PREMIUM SEAT");
@@ -80,8 +88,7 @@ function ubicacionMacro(sectorVal, packVal) {
   if (s.includes("LEPE")) return "LEPE";
   if (s.includes("FOUILLIOUX")) return "FOUILLIOUX";
   if (s.includes("LIVINGSTONE")) return "LIVINGSTONE";
-  // No inventamos OTRO; si viniera raro, caemos en la primera palabra
-  return (s.split(" ")[0] || "").trim() || "";
+  return ""; // no inventamos OTRO
 }
 
 function mapRowObj(headers, cols) {
@@ -100,7 +107,7 @@ function logHasComprador(logText, rutCompradorN) {
   const rows = parseCsv(logText, ",");
   if (rows.length < 2) return false;
 
-  const h = rows[0].map(x => x.trim());
+  const h = rows[0].map(x => cleanHeader(x).toLowerCase());
   const idxRutComprador = h.indexOf("rut_comprador");
   if (idxRutComprador === -1) return false;
 
@@ -128,14 +135,17 @@ exports.handler = async (event) => {
     const baseRows = parseCsv(baseCsv, ";");
     if (baseRows.length < 2) return json(200, { status: "NO_ENCONTRADO" });
 
-    const headers = baseRows[0];
+    const rawHeaders = baseRows[0];
+    const headers = rawHeaders.map(cleanHeader);       // ✅ importantísimo
     const dataRows = baseRows.slice(1);
 
-    // Normalizamos a objetos por headers EXACTOS del CSV
     const mapped = dataRows.map(cols => mapRowObj(headers, cols));
 
-    // Buscar por Rut titular (columna "Rut")
-    const match = mapped.find(x => normalizeRut(x["Rut"] || "") === rutN);
+    // ✅ Buscar por Rut titular O por Rut Comprador
+    const match = mapped.find(x =>
+      normalizeRut(x["Rut"] || "") === rutN ||
+      normalizeRut(x["Rut Comprador"] || "") === rutN
+    );
     if (!match) return json(200, { status: "NO_ENCONTRADO" });
 
     const rutCompradorN = normalizeRut(match["Rut Comprador"] || "");
@@ -150,8 +160,8 @@ exports.handler = async (event) => {
         rut: formatRut(m["Rut"] || ""),
         nombre: (m["Nombre Completo"] || "").trim(),
         categoria: (m["Categoria"] || "").trim(),
-        ubicacion: ubicacionMacro(m["Sector"], packRaw), // PRIETO/LEPE/FOUILLIOUX/LIVINGSTONE/PREMIUM SEAT
-        sector_detalle: (m["Sector"] || "").trim(),       // por si quieres mostrarlo luego
+        ubicacion: ubicacionMacro(m["Sector"], packRaw),
+        sector_detalle: (m["Sector"] || "").trim(),
         fila: (m["Fila"] || "").trim(),
         asiento: (m["Asiento"] || "").trim(),
         pack: (m["Pack"] || "").trim(),
@@ -172,7 +182,6 @@ exports.handler = async (event) => {
       estado = ya ? "YA_ENTREGADO" : "PENDIENTE";
     }
 
-    // resumen categorías SOLO de los que tienen pack (para que el resumen sea “packs”)
     const conteo = {};
     miembros.filter(x => x.pack_corresponde).forEach(m => {
       const c = (m.categoria || "SIN_CATEGORIA").trim().toUpperCase();
@@ -180,6 +189,8 @@ exports.handler = async (event) => {
     });
     const resumen = Object.entries(conteo).map(([cat, n]) => `${n} - ${cat}`);
 
+    // buscado: si buscó por comprador, igual mostramos un “representante”,
+    // pero mantenemos el rut buscado como el que calzó en match["Rut"] (titular)
     return json(200, {
       status: estado,
       buscado: { rut: formatRut(match["Rut"] || ""), nombre: (match["Nombre Completo"] || "").trim() },
