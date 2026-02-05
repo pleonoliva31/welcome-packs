@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Admin · Welcome Pack</title>
   <style>
-    :root{--bg:#f6f7f9;--card:#fff;--text:#0f172a;--muted:#64748b;--danger:#b91c1c;--ok:#166534;}
+    :root{--bg:#f6f7f9;--card:#fff;--text:#0f172a;--muted:#64748b;--danger:#b91c1c;--ok:#166534;--line:#e2e8f0;--dangerbg:#fee2e2;--okbg:#dcfce7;}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
     .wrap{max-width:1120px;margin:0 auto;padding:24px 16px 90px;}
     h1{margin:0 0 12px;font-size:28px;}
-    .card{background:var(--card);border-radius:18px;box-shadow:0 6px 18px rgba(15,23,42,.08);padding:18px;margin-bottom:14px;}
+    .card{background:var(--card);border-radius:18px;box-shadow:0 6px 18px rgba(15,23,42,.08);padding:18px;margin-bottom:14px;border:1px solid var(--line);}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
     input{flex:1;min-width:240px;padding:14px 16px;border-radius:14px;border:1px solid #e2e8f0;font-size:18px;}
     button{padding:12px 16px;border-radius:14px;border:0;background:#000;color:#fff;font-size:16px;cursor:pointer;}
@@ -17,54 +17,60 @@
     table{width:100%;border-collapse:collapse;margin-top:12px;display:block;overflow:auto;}
     th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;white-space:nowrap;}
     th{background:#f1f5f9;font-weight:700;position:sticky;top:0;}
-    .alert{padding:12px 14px;border-radius:14px;background:#fee2e2;color:var(--danger);border:1px solid #fecaca;margin-top:10px;}
-    .ok{padding:12px 14px;border-radius:14px;background:#dcfce7;color:var(--ok);border:1px solid #bbf7d0;margin-top:10px;}
-    .hidden{display:none;}
+    .alert{padding:12px 14px;border-radius:14px;background:var(--dangerbg);color:var(--danger);border:1px solid #fecaca;margin-top:10px;}
+    .ok{padding:12px 14px;border-radius:14px;background:var(--okbg);color:var(--ok);border:1px solid #bbf7d0;margin-top:10px;}
+    .muted{color:var(--muted);}
 
-    /* Bottom tabs: 3 columnas, responsive, SIN scroll */
+    /* Pack pills */
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px; border-radius:999px; font-weight:800; font-size:12px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
+    .pill.ok{ background:var(--okbg); border-color:#bbf7d0; color:var(--ok); }
+    .pill.no{ background:#f1f5f9; border-color:#e2e8f0; color:#334155; }
+    tr.dim{ opacity:.55; }
+
+    /* Bottom tabs (responsive) */
     .tabs{
       position:fixed;left:0;right:0;bottom:0;
       background:#fff;border-top:1px solid #e2e8f0;
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap:10px;
+      display:flex;justify-content:center;gap:10px;
       padding:10px;
       z-index:50;
     }
-
     .tabbtn{
-      width:100%;
+      flex:1;
       background:#f1f5f9;color:#0f172a;
-      border-radius:16px;
-      padding:12px 14px;
+      border-radius:16px;padding:10px 12px;
       display:flex;align-items:center;justify-content:center;
-      gap:10px;
-      font-weight:800;
+      gap:8px;font-weight:800;
+      min-width:0;
+      white-space:nowrap;
       user-select:none;
-      line-height:1;
     }
     .tabbtn span.label{
-      white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
     .tabbtn.active{background:#0f172a;color:#fff;}
+    .hidden{display:none;}
 
-    /* Desktop grande: pestañas más “grandes” visualmente */
+    /* Desktop: que no se vean mini */
     @media (min-width: 900px){
-      .tabs{padding:12px 16px;gap:12px;}
-      .tabbtn{padding:14px 18px;border-radius:18px;font-size:18px;}
+      .tabs{gap:14px;padding:12px;}
+      .tabbtn{max-width:260px;padding:12px 14px;font-size:16px;}
     }
-
-    /* Mobile: compactar para que quepan perfecto */
-    @media (max-width: 420px){
-      .tabs{gap:8px;padding:8px;}
-      .tabbtn{padding:10px 10px;border-radius:14px;font-size:14px;gap:6px;}
+    /* Mobile: que calcen en 1 fila */
+    @media (max-width: 480px){
+      .tabs{gap:8px;padding:10px;}
+      .tabbtn{padding:10px 10px;font-size:14px;border-radius:14px;}
     }
 
     /* Modal */
     .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:99;}
-    .modal{background:#fff;border-radius:18px;max-width:520px;width:100%;padding:18px;box-shadow:0 18px 40px rgba(0,0,0,.25);}
+    .modal{background:#fff;border-radius:18px;max-width:520px;width:100%;padding:18px;box-shadow:0 18px 40px rgba(0,0,0,.25);border:1px solid var(--line);}
     .modal h3{margin:0 0 8px;}
     .modal p{margin:0 0 14px;color:var(--muted);}
     .modal .actions{display:flex;gap:10px;justify-content:flex-end;}
@@ -84,22 +90,30 @@
         <button id="btnBuscar">Buscar</button>
       </div>
 
+      <div id="buscarMsg"></div>
+
       <div id="groupBox" style="display:none;margin-top:10px;">
         <div id="groupHeader" style="font-weight:800;margin-bottom:8px;"></div>
-        <div id="groupSummary" style="color:var(--muted);margin-bottom:10px;"></div>
+        <div id="groupSummary" class="muted" style="margin-bottom:10px;"></div>
 
         <table>
           <thead>
             <tr>
-              <th>Rut</th><th>Nombre</th><th>Categoría</th><th>Tribuna</th><th>Sector</th>
+              <th>Pack</th>
+              <th>Rut</th>
+              <th>Nombre</th>
+              <th>Categoría</th>
+              <th>Ubicación</th>
+              <th>Fila</th>
+              <th>Asiento</th>
             </tr>
           </thead>
           <tbody id="groupTbody"></tbody>
         </table>
 
-        <div id="alreadyBox"></div>
+        <div id="statusBox"></div>
 
-        <div id="formEntrega" style="margin-top:14px;">
+        <div id="formEntrega" style="margin-top:14px; display:none;">
           <h3 style="margin:0 0 10px;">Datos del receptor</h3>
           <div class="row">
             <input id="rutReceptor" placeholder="RUT receptor (con o sin guión)"/>
@@ -117,26 +131,26 @@
         <button onclick="window.open('/.netlify/functions/export_base','_blank')">Descargar base (Excel)</button>
         <button onclick="window.open('/.netlify/functions/export_log','_blank')">Descargar entregas (Excel)</button>
       </div>
-      <div style="color:var(--muted);margin-top:10px;">
-        * Descargas pensadas para abrir directo en Excel.
+      <div class="muted" style="margin-top:10px;">
+        Descarga directa en formato Excel (.xls).
       </div>
     </section>
 
     <!-- METRICAS -->
     <section id="view-metricas" class="card hidden">
-      <div class="row" style="justify-content:space-between;align-items:center;">
+      <div class="row" style="justify-content:space-between;">
         <h2 style="margin:0;">Métricas (resumen)</h2>
         <button id="btnMetrics">Actualizar</button>
       </div>
-      <div id="metricsOut" style="margin-top:12px;"></div>
+      <div id="metricsBox" style="margin-top:10px;"></div>
     </section>
   </div>
 
   <!-- TABS ABAJO -->
   <div class="tabs">
-    <div class="tabbtn active" data-tab="registrar"><span>📝</span><span class="label">Registrar</span></div>
-    <div class="tabbtn" data-tab="exportar"><span>⬇️</span><span class="label">Exportar</span></div>
-    <div class="tabbtn" data-tab="metricas"><span>📊</span><span class="label">Métricas</span></div>
+    <div class="tabbtn active" data-tab="registrar">📝 <span class="label">Registrar</span></div>
+    <div class="tabbtn" data-tab="exportar">⬇️ <span class="label">Exportar</span></div>
+    <div class="tabbtn" data-tab="metricas">📊 <span class="label">Métricas</span></div>
   </div>
 
   <!-- MODAL -->
@@ -166,42 +180,34 @@
   modalClose.onclick = ()=> modalOverlay.style.display="none";
   modalOverlay.addEventListener("click",(e)=>{ if(e.target===modalOverlay) modalOverlay.style.display="none"; });
 
-  function esc(s){
-    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
-  function pct(x){ return `${Math.round((x||0)*1000)/10}%`; } // 1 decimal
-
-  // views / tabs
+  // tabs
   const views = {
     registrar: $("view-registrar"),
     exportar: $("view-exportar"),
     metricas: $("view-metricas")
   };
-
   document.querySelectorAll(".tabbtn").forEach(btn=>{
-    btn.onclick = ()=>{
+    btn.onclick = async ()=>{
       document.querySelectorAll(".tabbtn").forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
       Object.values(views).forEach(v=>v.classList.add("hidden"));
-      verifyView(btn.dataset.tab);
+      views[btn.dataset.tab].classList.remove("hidden");
 
-      if(btn.dataset.tab === "metricas") cargarMetricas();
+      if(btn.dataset.tab === "metricas"){
+        await loadMetrics();
+      }
     };
   });
-
-  function verifyView(tab){
-    if(!views[tab]) tab = "registrar";
-    views[tab].classList.remove("hidden");
-  }
 
   // registrar
   const rutBuscar = $("rutBuscar");
   const btnBuscar = $("btnBuscar");
+  const buscarMsg = $("buscarMsg");
   const groupBox = $("groupBox");
   const groupHeader = $("groupHeader");
   const groupSummary = $("groupSummary");
   const groupTbody = $("groupTbody");
-  const alreadyBox = $("alreadyBox");
+  const statusBox = $("statusBox");
   const formEntrega = $("formEntrega");
   const rutReceptor = $("rutReceptor");
   const nombreReceptor = $("nombreReceptor");
@@ -209,39 +215,79 @@
 
   let lastData = null;
 
+  function sortMiembros(miembros){
+    const arr = Array.isArray(miembros) ? [...miembros] : [];
+    arr.sort((a,b)=>{
+      const ap = a.pack_corresponde ? 1 : 0;
+      const bp = b.pack_corresponde ? 1 : 0;
+      if (bp !== ap) return bp - ap;
+      return String(a.nombre||"").localeCompare(String(b.nombre||""), "es");
+    });
+    return arr;
+  }
+
   function renderGroup(data){
     lastData = data;
     groupBox.style.display = "block";
     groupTbody.innerHTML = "";
-    alreadyBox.innerHTML = "";
+    statusBox.innerHTML = "";
+    formEntrega.style.display = "none";
+
+    const packsAEntregar = Number(data.packs_a_entregar || 0);
+    const sinPack = Number(data.sin_pack || 0);
 
     groupHeader.textContent =
-      `Estado: ${data.status} · RUT buscado: ${data.buscado.rut} · Nombre: ${data.buscado.nombre || "-"}`;
-    groupSummary.textContent =
-      `Comprador: ${data.comprador.nombre || "-"} (${data.comprador.rut}) · Resumen packs: ${(data.resumen||[]).join(", ")}`;
+      `Estado: ${data.status} · RUT buscado: ${data.buscado?.rut || ""} · Nombre: ${data.buscado?.nombre || "-"}`;
 
-    (data.miembros || []).forEach(m=>{
+    groupSummary.textContent =
+      `Comprador: ${data.comprador?.nombre || "-"} (${data.comprador?.rut || "-"}) · Packs a entregar: ${packsAEntregar} · Sin pack: ${sinPack}`;
+
+    const miembrosOrdenados = sortMiembros(data.miembros || []);
+
+    miembrosOrdenados.forEach(m=>{
+      const corresponde = !!m.pack_corresponde;
+      const pill = corresponde
+        ? `<span class="pill ok">✅ ${m.pack || "SI"}</span>`
+        : `<span class="pill no">❌ NO</span>`;
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${esc(m.rut)}</td><td>${esc(m.nombre||"")}</td><td>${esc(m.categoria||"")}</td><td>${esc(m.tribuna||"")}</td><td>${esc(m.sector||"")}</td>`;
+      if(!corresponde) tr.classList.add("dim");
+
+      tr.innerHTML = `
+        <td>${pill}</td>
+        <td>${m.rut||""}</td>
+        <td>${m.nombre||""}</td>
+        <td>${m.categoria||""}</td>
+        <td>${m.ubicacion||""}</td>
+        <td>${m.fila||""}</td>
+        <td>${m.asiento||""}</td>
+      `;
       groupTbody.appendChild(tr);
     });
 
-    const isEntregado = (data.status === "YA_ENTREGADO");
-    formEntrega.style.display = isEntregado ? "none" : "block";
+    // banners
+    if(data.status === "NO_CORRESPONDE" || packsAEntregar === 0){
+      const div = document.createElement("div");
+      div.className = "alert";
+      div.textContent = "Este grupo no tiene welcome pack.";
+      statusBox.appendChild(div);
+      return;
+    }
 
-    if(isEntregado){
+    if(data.status === "YA_ENTREGADO"){
       const div = document.createElement("div");
       div.className = "ok";
-      div.textContent = "Este grupo ya aparece como ENTREGADO.";
-      alreadyBox.appendChild(div);
-    } else {
-      rutReceptor.value = "";
-      nombreReceptor.value = "";
+      div.textContent = "Welcome packs ya entregados a este grupo.";
+      statusBox.appendChild(div);
+      return;
     }
+
+    // si llega acá: PENDIENTE y con packs
+    formEntrega.style.display = "block";
   }
 
   async function buscar(){
     const rut = rutBuscar.value.trim();
+    buscarMsg.innerHTML = "";
     groupBox.style.display = "none";
     lastData = null;
 
@@ -255,9 +301,14 @@
       const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
       const data = await res.json();
 
-      if(data.status === "NO_ENCONTRADO"){ showModal("No encontrado", "No se encontró el RUT en la base."); return; }
-      if(data.status === "SIN_GRUPO"){ showModal("Sin grupo", "Se encontró el RUT, pero no se pudo armar el grupo del comprador."); return; }
-      if(data.status === "ERROR"){ showModal("Error", data.error || "Error desconocido"); return; }
+      if(data.status === "NO_ENCONTRADO"){
+        showModal("No encontrado", "No se encontró el RUT en la base.");
+        return;
+      }
+      if(data.status === "ERROR"){
+        showModal("Error", data.error || "Error desconocido");
+        return;
+      }
 
       renderGroup(data);
     }catch(e){
@@ -275,15 +326,19 @@
       showModal("Sin grupo", "Primero busca un RUT.");
       return;
     }
+
+    const packsAEntregar = Number(lastData.packs_a_entregar || 0);
+    if(lastData.status === "NO_CORRESPONDE" || packsAEntregar === 0){
+      showModal("No corresponde", "Este grupo no tiene welcome pack.");
+      return;
+    }
     if(lastData.status === "YA_ENTREGADO"){
-      showModal("Ya entregado", "Este grupo ya aparece como entregado.");
+      showModal("Ya entregado", "Welcome packs ya entregados a este grupo.");
       return;
     }
 
-    const rutBuscado = rutBuscar.value.trim();
-
     const body = {
-      rut_buscado: rutBuscado,
+      rut_buscado: lastData.buscado?.rut || rutBuscar.value.trim(),
       rut_receptor: rutReceptor.value.trim(),
       nombre_receptor: nombreReceptor.value.trim()
     };
@@ -304,6 +359,12 @@
 
       if(data.status === "YA_ENTREGADO"){
         showModal("Ya entregado", "Este grupo ya tenía entrega registrada.");
+        await buscar();
+        return;
+      }
+      if(data.status === "NO_CORRESPONDE"){
+        showModal("No corresponde", "Este grupo no tiene welcome pack.");
+        await buscar();
         return;
       }
       if(data.status !== "OK"){
@@ -311,11 +372,10 @@
         return;
       }
 
-      showModal("Listo ✅", "Entrega guardada correctamente.");
-      await buscar();
-
+      showModal("Listo ✅", `Entrega registrada correctamente. (${data.filas_escritas || 0} pack(s))`);
       rutReceptor.value = "";
       nombreReceptor.value = "";
+      await buscar();
     }catch(e){
       showModal("Error", String(e?.message || e));
     }finally{
@@ -327,98 +387,85 @@
 
   // Métricas
   const btnMetrics = $("btnMetrics");
-  const metricsOut = $("metricsOut");
-  btnMetrics.onclick = cargarMetricas;
+  const metricsBox = $("metricsBox");
 
-  async function cargarMetricas(){
-    metricsOut.innerHTML = "Cargando...";
+  function fmtPct(x){
+    const v = Number(x || 0) * 100;
+    return `${v.toFixed(1)}%`;
+  }
+
+  async function loadMetrics(){
+    metricsBox.innerHTML = `<div class="muted">Cargando...</div>`;
     btnMetrics.disabled = true;
-
     try{
       const res = await fetch("/.netlify/functions/metrics");
       const data = await res.json();
-
-      if(!res.ok || data.status !== "OK"){
-        metricsOut.innerHTML = `<div class="alert">Error: ${esc(data.error || "No se pudo cargar")}</div>`;
+      if(data.status !== "OK"){
+        metricsBox.innerHTML = `<div class="alert">${data.error || "No se pudo cargar métricas"}</div>`;
         return;
       }
 
-      let html = `
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
-          <div style="padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;">
-            <div style="color:#64748b;font-weight:700;">Total Welcome Packs</div>
-            <div style="font-size:34px;font-weight:900;line-height:1.1;">${data.total_base}</div>
+      const cards = `
+        <div class="row" style="margin-top:10px;">
+          <div class="card" style="flex:1; margin:0; border:1px solid var(--line);">
+            <div class="muted">Total welcome packs</div>
+            <div style="font-size:34px; font-weight:900;">${data.total_base ?? 0}</div>
           </div>
-
-          <div style="padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;">
-            <div style="color:#64748b;font-weight:700;">Entregados</div>
-            <div style="font-size:34px;font-weight:900;line-height:1.1;">${data.total_entregados}</div>
+          <div class="card" style="flex:1; margin:0; border:1px solid var(--line);">
+            <div class="muted">Entregados</div>
+            <div style="font-size:34px; font-weight:900;">${data.total_entregados ?? 0}</div>
           </div>
-
-          <div style="padding:14px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;">
-            <div style="color:#64748b;font-weight:700;">% Entrega</div>
-            <div style="font-size:34px;font-weight:900;line-height:1.1;">${pct(data.pct_total)}</div>
+          <div class="card" style="flex:1; margin:0; border:1px solid var(--line);">
+            <div class="muted">% Entrega</div>
+            <div style="font-size:34px; font-weight:900;">${fmtPct(data.pct_total)}</div>
           </div>
         </div>
       `;
 
-      html += `
-        <h3 style="margin:16px 0 8px;">Por categoría</h3>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Categoría</th>
-              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Entregados</th>
-              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Total</th>
-              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">% Entreg</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${(data.por_categoria||[]).map(r => `
-              <tr>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.categoria)}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.entregados}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.base}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${pct(r.pct)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
+      const catRows = (data.por_categoria || []).map(r=>`
+        <tr>
+          <td>${r.categoria}</td>
+          <td>${r.entregados}</td>
+          <td>${r.base}</td>
+          <td>${fmtPct(r.pct)}</td>
+        </tr>
+      `).join("");
+
+      const tsRows = (data.por_ubicacion || data.por_tribuna_sector || []).map(r=>`
+        <tr>
+          <td>${r.ubicacion || r.tribuna || ""}</td>
+          <td>${r.entregados}</td>
+          <td>${r.base}</td>
+          <td>${fmtPct(r.pct)}</td>
+        </tr>
+      `).join("");
+
+      metricsBox.innerHTML = `
+        ${cards}
+
+        <h3 style="margin:18px 0 8px;">Por categoría</h3>
+        <table>
+          <thead><tr><th>Categoría</th><th>Entregados</th><th>Total</th><th>% Entrega</th></tr></thead>
+          <tbody>${catRows || ""}</tbody>
         </table>
-      `;
 
-      const rows = (data.por_ubicacion || []);
-      html += `
-        <h3 style="margin:16px 0 8px;">Por ubicación</h3>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr>
-              <th style="text-align:left;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Ubicación</th>
-              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Entregados</th>
-              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">Total</th>
-              <th style="text-align:right;border-bottom:1px solid #e2e8f0;padding:10px 12px;">% Entreg</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;">${esc(r.ubicacion)}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.entregados}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${r.base}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid #f1f5f9;text-align:right;">${pct(r.pct)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
+        <h3 style="margin:18px 0 8px;">Por ubicación</h3>
+        <div class="muted">Agrupado por PRIETO / LEPE / FOUILLIOUX / LIVINGSTONE / PREMIUM SEAT.</div>
+        <table>
+          <thead><tr><th>Ubicación</th><th>Entregados</th><th>Total</th><th>% Entrega</th></tr></thead>
+          <tbody>${tsRows || ""}</tbody>
         </table>
+
+        <div class="muted" style="margin-top:10px;">Actualizado: ${data.updated_at || ""}</div>
       `;
-
-      metricsOut.innerHTML = html;
-
     }catch(e){
-      metricsOut.innerHTML = `<div class="alert">${esc(String(e?.message || e))}</div>`;
+      metricsBox.innerHTML = `<div class="alert">${String(e?.message || e)}</div>`;
     }finally{
       btnMetrics.disabled = false;
     }
   }
+
+  btnMetrics.onclick = loadMetrics;
 </script>
 </body>
 </html>
