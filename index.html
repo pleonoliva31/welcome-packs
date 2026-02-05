@@ -35,7 +35,6 @@
     }
     .pill.ok{ background:var(--okbg); border-color:#bbf7d0; color:#166534; }
     .pill.no{ background:#f1f5f9; border-color:#e2e8f0; color:#334155; }
-
     tr.dim{ opacity:.55; }
 
     /* Modal */
@@ -78,7 +77,6 @@
 <script>
   let currentData = null;
   let rutBuscadoActual = null;
-
   const $ = (id) => document.getElementById(id);
 
   function showModal(title, text){
@@ -87,7 +85,6 @@
     $("modalBackdrop").style.display = "flex";
   }
   function hideModal(){ $("modalBackdrop").style.display = "none"; }
-
   $("modalClose").onclick = hideModal;
   $("modalBackdrop").addEventListener("click", (e)=>{ if(e.target.id==="modalBackdrop") hideModal(); });
 
@@ -96,6 +93,17 @@
     if(status === "PENDIENTE") return "PENDIENTE";
     if(status === "NO_CORRESPONDE") return "NO_CORRESPONDE";
     return status || "-";
+  }
+
+  function sortMiembros(miembros){
+    const arr = Array.isArray(miembros) ? [...miembros] : [];
+    arr.sort((a,b)=>{
+      const ap = a.pack_corresponde ? 1 : 0;
+      const bp = b.pack_corresponde ? 1 : 0;
+      if (bp !== ap) return bp - ap; // primero true
+      return String(a.nombre||"").localeCompare(String(b.nombre||""), "es");
+    });
+    return arr;
   }
 
   function renderBuscar(data){
@@ -114,7 +122,6 @@
     const packsAEntregar = Number(data.packs_a_entregar || 0);
     const sinPack = Number(data.sin_pack || 0);
 
-    // Banner contextual
     let bannerExtra = "";
     if (data.status === "NO_CORRESPONDE") {
       bannerExtra = `<div class="msg err" style="margin-top:12px;">
@@ -137,21 +144,23 @@
       </div>
     `;
 
+    const miembrosOrdenados = sortMiembros(data.miembros || []);
+
     const tabla = `
       <table>
         <thead>
           <tr>
+            <th>Pack</th>
             <th>Rut</th>
             <th>Nombre</th>
             <th>Categoría</th>
             <th>Ubicación</th>
             <th>Fila</th>
             <th>Asiento</th>
-            <th>Pack</th>
           </tr>
         </thead>
         <tbody>
-          ${(data.miembros || []).map(m => {
+          ${miembrosOrdenados.map(m => {
             const corresponde = !!m.pack_corresponde;
             const pill = corresponde
               ? `<span class="pill ok">✅ ${m.pack || "SI"}</span>`
@@ -159,13 +168,13 @@
             const trClass = corresponde ? "" : "dim";
             return `
               <tr class="${trClass}">
+                <td>${pill}</td>
                 <td>${m.rut || ""}</td>
                 <td>${m.nombre || ""}</td>
                 <td>${m.categoria || ""}</td>
                 <td>${m.ubicacion || ""}</td>
                 <td>${m.fila || ""}</td>
                 <td>${m.asiento || ""}</td>
-                <td>${pill}</td>
               </tr>
             `;
           }).join("")}
@@ -173,7 +182,6 @@
       </table>
     `;
 
-    // Form sólo si hay packs y está PENDIENTE
     let form = "";
     if (data.status === "PENDIENTE" && packsAEntregar > 0) {
       form = `
@@ -233,13 +241,8 @@
       rutBuscadoActual ||
       $("rutInput").value.trim();
 
-    if (!rut_buscado) {
-      showModal("Error", "Falta rut_buscado");
-      return;
-    }
-
-    // Bloqueos de seguridad UI
     const packsAEntregar = Number(currentData?.packs_a_entregar || 0);
+
     if (currentData.status === "NO_CORRESPONDE" || packsAEntregar === 0) {
       showModal("No corresponde", "Este grupo no tiene welcome pack.");
       return;
