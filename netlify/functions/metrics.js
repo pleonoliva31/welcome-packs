@@ -3,7 +3,7 @@ const { json, okCors, normalizeRut, stripDiacritics } = require("./_log_utils");
 const blobs = require("@netlify/blobs");
 
 const STORE_NAME = "welcome-packs";
-const LOG_KEY = "registro_entregas.csv";
+const LOG_KEY = "registro_entregas_2026.csv"; // ✅ log 2026
 
 function getStore() {
   const siteID = process.env.BLOBS_SITE_ID;
@@ -41,7 +41,7 @@ function parseCsv(text, delimiter) {
     if (!inQuotes && (ch === "\n" || ch === "\r")) {
       if (ch === "\r" && next === "\n") i++;
       row.push(cur);
-      rows.push(row.map(x => x.trim()));
+      rows.push(row.map(x => String(x ?? "").trim()));
       row = [];
       cur = "";
       continue;
@@ -52,7 +52,7 @@ function parseCsv(text, delimiter) {
 
   if (cur.length || row.length) {
     row.push(cur);
-    rows.push(row.map(x => x.trim()));
+    rows.push(row.map(x => String(x ?? "").trim()));
   }
 
   return rows.filter(r => r.some(c => String(c || "").trim() !== ""));
@@ -81,8 +81,19 @@ function ubicacionDesdeSector(packRaw, sectorRaw) {
   if (s.includes("LEPE")) return "LEPE";
   if (s.includes("FOUILLIOUX")) return "FOUILLIOUX";
   if (s.includes("LIVINGSTONE")) return "LIVINGSTONE";
-  // Si viene algo raro, lo dejamos como string acotado (pero no lo eliminamos)
   return "OTROS";
+}
+
+// ✅ hora Chile (sin Z)
+function nowChileString() {
+  const dtf = new Intl.DateTimeFormat("es-CL", {
+    timeZone: "America/Santiago",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false
+  });
+  // es-CL suele venir como "05-02-2026, 12:49:00" → lo dejamos legible
+  return dtf.format(new Date()).replace(",", "");
 }
 
 exports.handler = async (event) => {
@@ -97,10 +108,20 @@ exports.handler = async (event) => {
     const baseCsv = await loadText(baseUrl);
     const baseRows = parseCsv(baseCsv, ";");
     if (baseRows.length < 2) {
-      return json(200, { status: "OK", total_base: 0, total_entregados: 0, pct_total: 0, por_categoria: [], por_ubicacion: [], updated_at: new Date().toISOString() });
+      return json(200, {
+        status: "OK",
+        total_base: 0,
+        total_entregados: 0,
+        pct_total: 0,
+        por_categoria: [],
+        por_ubicacion: [],
+        invalid_rut_con_pack: 0,
+        updated_at: nowChileString(),
+        updated_at_iso: new Date().toISOString(),
+      });
     }
 
-    const headers = baseRows[0].map(h => h.trim());
+    const headers = baseRows[0].map(h => String(h || "").trim());
     const data = baseRows.slice(1);
 
     const idxRut = headers.findIndex(h => h.toLowerCase() === "rut");
@@ -113,16 +134,23 @@ exports.handler = async (event) => {
     if (idxCat === -1) throw new Error("Base CSV sin columna 'Categoria'.");
     if (idxSector === -1) throw new Error("Base CSV sin columna 'Sector'.");
 
-    // Solo filas que corresponden pack (SI o PREMIUM SEAT)
-    const packsBase = data.map(r => ({
-      rut: normalizeRut(r[idxRut] || ""),
-      categoria: String(r[idxCat] || "").trim().toUpperCase(),
-      sector: String(r[idxSector] || "").trim(),
-      pack: String(r[idxPack] || "").trim(),
-    }))
-    .filter(p => p.rut && packCorresponde(p.pack));
+    // ✅ Solo filas con pack, pero NO botamos si normalizeRut falla.
+    const packsBase = data
+      .map(r => {
+        const rutRaw = String(r[idxRut] || "").trim();
+        const rutN = normalizeRut(rutRaw || "");
+        return {
+          rut_raw: rutRaw,
+          rut: rutN, // puede quedar ""
+          categoria: String(r[idxCat] || "").trim().toUpperCase(),
+          sector: String(r[idxSector] || "").trim(),
+          pack: String(r[idxPack] || "").trim(),
+        };
+      })
+      .filter(p => packCorresponde(p.pack));
 
     const totalBase = packsBase.length;
+    const invalidRutConPack = packsBase.reduce((acc, p) => acc + (!p.rut ? 1 : 0), 0);
 
     // 2) Log (entregados)
     const store = getStore();
@@ -131,8 +159,7 @@ exports.handler = async (event) => {
     const entregadosSet = new Set();
 
     if (logRows.length >= 2) {
-      const h = logRows[0].map(x => x.trim().toLowerCase());
-      // log actual: rut,rut_receptor,nombre_receptor,retirado_at
+      const h = logRows[0].map(x => String(x || "").trim().toLowerCase());
       const iRut = h.indexOf("rut");
       if (iRut !== -1) {
         for (let i = 1; i < logRows.length; i++) {
@@ -142,16 +169,16 @@ exports.handler = async (event) => {
       }
     }
 
-    const totalEntregados = packsBase.reduce((acc, p) => acc + (entregadosSet.has(p.rut) ? 1 : 0), 0);
+    const totalEntregados = packsBase.reduce((acc, p) => acc + (p.rut && entregadosSet.has(p.rut) ? 1 : 0), 0);
     const pctTotal = totalBase ? (totalEntregados / totalBase) : 0;
 
-    // 3) Por categoría (solo dentro de los que corresponden pack)
+    // 3) Por categoría
     const catAgg = {};
     for (const p of packsBase) {
       const c = (p.categoria || "SIN_CATEGORIA").trim().toUpperCase();
       catAgg[c] ||= { base: 0, entregados: 0 };
       catAgg[c].base++;
-      if (entregadosSet.has(p.rut)) catAgg[c].entregados++;
+      if (p.rut && entregadosSet.has(p.rut)) catAgg[c].entregados++;
     }
 
     const porCategoria = Object.entries(catAgg)
@@ -163,13 +190,13 @@ exports.handler = async (event) => {
       }))
       .sort((a,b) => b.base - a.base);
 
-    // 4) Por ubicación (PRIETO/LEPE/FOUILLIOUX/LIVINGSTONE/PREMIUM SEAT)
+    // 4) Por ubicación
     const uAgg = {};
     for (const p of packsBase) {
       const ubicacion = ubicacionDesdeSector(p.pack, p.sector);
       uAgg[ubicacion] ||= { ubicacion, base: 0, entregados: 0 };
       uAgg[ubicacion].base++;
-      if (entregadosSet.has(p.rut)) uAgg[ubicacion].entregados++;
+      if (p.rut && entregadosSet.has(p.rut)) uAgg[ubicacion].entregados++;
     }
 
     const porUbicacion = Object.values(uAgg)
@@ -183,7 +210,9 @@ exports.handler = async (event) => {
       pct_total: pctTotal,
       por_categoria: porCategoria,
       por_ubicacion: porUbicacion,
-      updated_at: new Date().toISOString(),
+      invalid_rut_con_pack: invalidRutConPack, // ✅ para validar esos 34
+      updated_at: nowChileString(),           // ✅ hora Chile (sin Z)
+      updated_at_iso: new Date().toISOString()// (debug)
     });
 
   } catch (e) {
