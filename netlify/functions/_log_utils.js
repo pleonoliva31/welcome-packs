@@ -1,107 +1,72 @@
 // netlify/functions/_log_utils.js
-// Utilidades compartidas por las Netlify Functions.
 
-function baseHeaders(extra = {}) {
+function okCors() {
   return {
-    "Content-Type": "application/json; charset=utf-8",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    ...extra,
+    statusCode: 200,
+    headers: {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "content-type",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+    },
+    body: "",
   };
 }
 
 function json(statusCode, obj) {
   return {
     statusCode,
-    headers: baseHeaders(),
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "content-type",
+      "access-control-allow-methods": "GET,POST,OPTIONS",
+    },
     body: JSON.stringify(obj),
   };
 }
 
-function okCors() {
-  return {
-    statusCode: 204,
-    headers: baseHeaders({ "Content-Type": "text/plain; charset=utf-8" }),
-    body: "",
-  };
+function normalizeRut(rut) {
+  const s = String(rut || "").trim().toUpperCase();
+  if (!s) return "";
+  // quita puntos y espacios, deja guión si existe
+  const cleaned = s.replace(/\./g, "").replace(/\s+/g, "");
+  return cleaned;
 }
 
-// Normaliza RUT: quita puntos/espacios, deja guión antes del DV y DV en MAYÚSCULA
-function normalizeRut(input) {
-  if (!input) return "";
-  let s = String(input).trim().toUpperCase();
-  s = s.replace(/\./g, "").replace(/\s+/g, "");
-
-  if (s.includes("-")) {
-    const [num, dv] = s.split("-");
-    if (!num || !dv) return "";
-    return `${num.replace(/\D/g, "")}-${dv.replace(/[^0-9K]/g, "")}`;
-  }
-
-  const clean = s.replace(/[^0-9K]/g, "");
-  if (clean.length < 2) return "";
-  const num = clean.slice(0, -1);
-  const dv = clean.slice(-1);
-  return `${num}-${dv}`;
+function formatRut(rut) {
+  const s = normalizeRut(rut);
+  if (!s) return "";
+  // deja como viene (ya vienes usando formatRut en buscar)
+  return s;
 }
 
-// Formatea un RUT (normalizado o no) a: 12.345.678-9
-function formatRut(input) {
-  const n = normalizeRut(input);
-  if (!n) return "";
-  const [num, dv] = n.split("-");
-  if (!num || !dv) return "";
-  const numDots = String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${numDots}-${dv.toUpperCase()}`;
+function stripDiacritics(s) {
+  return String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
-function nowISO() {
-  return new Date().toISOString();
-}
-
-// CSV base viene con ';'
-function parseCsvSemicolon(csvText) {
-  const lines = String(csvText || "").split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return { headers: [], rows: [] };
-
-  const headers = lines[0].split(";").map((h) => h.trim());
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(";");
-    const obj = {};
-    headers.forEach((h, idx) => (obj[h] = (cols[idx] ?? "").trim()));
-    rows.push(obj);
-  }
-  return { headers, rows };
-}
-
-// Mapeo estándar desde abonados_base.csv
-function mapRowFromCsv(r) {
-  return {
-    rut_comprador: r["Rut Comprador"] || "",
-    nombre_comprador: r["Nombre Comprador"] || "",
-    email_comprador: r["Email Comprador"] || "",
-    rut: r["Rut"] || "",
-    nombre: r["Nombre Completo"] || "",
-    categoria: r["Welcome Pack"] || "",
-    tribuna: r["Tribuna"] || "",
-    sector: r["Sector"] || "",
-    entregado_base: r["Entregado"] || "",
-  };
-}
-
-function groupKeyFromRow(row) {
-  return normalizeRut(row?.rut_comprador || "");
+// ISO “Chile” fijo -03:00 (sin depender de timezone del server)
+function nowChileISO() {
+  const offsetMs = 3 * 60 * 60 * 1000;
+  const d = new Date(Date.now() - offsetMs); // “corremos” la hora para que el UTC sea Chile
+  const pad = (n) => String(n).padStart(2, "0");
+  const ms = String(d.getUTCMilliseconds()).padStart(3, "0");
+  const yyyy = d.getUTCFullYear();
+  const MM = pad(d.getUTCMonth() + 1);
+  const DD = pad(d.getUTCDate());
+  const hh = pad(d.getUTCHours());
+  const mm = pad(d.getUTCMinutes());
+  const ss = pad(d.getUTCSeconds());
+  return `${yyyy}-${MM}-${DD}T${hh}:${mm}:${ss}.${ms}-03:00`;
 }
 
 module.exports = {
-  json,
   okCors,
+  json,
   normalizeRut,
   formatRut,
-  nowISO,
-  parseCsvSemicolon,
-  mapRowFromCsv,
-  groupKeyFromRow,
+  stripDiacritics,
+  nowChileISO,
 };
