@@ -26,19 +26,56 @@ function json(statusCode, obj) {
   };
 }
 
+/**
+ * Normaliza a formato canónico SIN guión:
+ * - deja solo dígitos + K
+ * - toma último char como DV
+ * - retorna "CUERPO+DV" (ej: 184653710)
+ */
 function normalizeRut(rut) {
-  const s = String(rut || "").trim().toUpperCase();
-  if (!s) return "";
-  // quita puntos y espacios, deja guión si existe
-  const cleaned = s.replace(/\./g, "").replace(/\s+/g, "");
-  return cleaned;
+  let s = String(rut || "")
+    .toUpperCase()
+    .trim()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "");
+
+  // deja solo [0-9K]
+  s = s.replace(/[^0-9K]/g, "");
+
+  if (s.length < 2) return "";
+
+  const dv = s.slice(-1);
+  let body = s.slice(0, -1);
+
+  // quita ceros a la izquierda
+  body = body.replace(/^0+/, "");
+  if (!body) return "";
+
+  return body + dv;
 }
 
-function formatRut(rut) {
-  const s = normalizeRut(rut);
-  if (!s) return "";
-  // deja como viene (ya vienes usando formatRut en buscar)
-  return s;
+/**
+ * Formatea para mostrar: con guión (y opcionalmente puntos).
+ * Por defecto: sin puntos, con guión.
+ */
+function formatRut(rut, withDots = false) {
+  const n = normalizeRut(rut);
+  if (!n) return "";
+
+  const dv = n.slice(-1);
+  let body = n.slice(0, -1);
+
+  if (!withDots) return `${body}-${dv}`;
+
+  // agrega puntos a cuerpo
+  let out = "";
+  while (body.length > 3) {
+    out = "." + body.slice(-3) + out;
+    body = body.slice(0, -3);
+  }
+  out = body + out;
+
+  return `${out}-${dv}`;
 }
 
 function stripDiacritics(s) {
