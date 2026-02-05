@@ -1,5 +1,8 @@
+// netlify/functions/export_log.js
 const { okCors } = require("./_log_utils");
 const blobs = require("@netlify/blobs");
+
+const LOG_KEY = "registro_entregas_2026.csv";
 
 function getStore() {
   const siteID = process.env.BLOBS_SITE_ID;
@@ -34,14 +37,14 @@ exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return okCors();
   try {
     const store = getStore();
-    const txt = (await store.get("registro_entregas.csv", { type:"text" })) || "";
+    const txt = (await store.get(LOG_KEY, { type:"text" })) || "";
     const table = csvToHtmlTableComma(txt);
 
     return {
       statusCode: 200,
       headers: {
         "content-type": "application/vnd.ms-excel; charset=utf-8",
-        "content-disposition": 'attachment; filename="registro_entregas.xls"',
+        "content-disposition": 'attachment; filename="registro_entregas_2026.xls"',
         "cache-control": "no-store",
         "access-control-allow-origin": "*",
       },
