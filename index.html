@@ -13,6 +13,7 @@
     .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
     input{ width:100%; max-width:640px; padding:14px 16px; border:1px solid var(--line); border-radius:14px; font-size:18px; outline:none; }
     button{ padding:14px 18px; border-radius:14px; border:0; background:#000; color:#fff; font-size:18px; cursor:pointer; }
+    button:disabled{ opacity:.6; cursor:not-allowed; }
     .tip{ margin:10px 0 0; color:var(--muted); }
     .msg{ margin-top:16px; padding:14px 16px; border-radius:14px; border:1px solid var(--line); }
     .msg.err{ background:var(--dangerbg); border-color:#fecaca; color:var(--danger); }
@@ -25,6 +26,18 @@
     .formRow{ display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; }
     .formRow input{ max-width:340px; }
     .right{ margin-left:auto; }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px; border-radius:999px; font-weight:800; font-size:12px;
+      border:1px solid var(--line);
+      background:#fff;
+    }
+    .pill.ok{ background:var(--okbg); border-color:#bbf7d0; color:#166534; }
+    .pill.no{ background:#f1f5f9; border-color:#e2e8f0; color:#334155; }
+
+    tr.dim{ opacity:.55; }
+
     /* Modal */
     .modal-backdrop{ position:fixed; inset:0; background:rgba(2,6,23,.45); display:none; align-items:center; justify-content:center; padding:18px; }
     .modal{ background:#fff; width:min(520px, 100%); border-radius:18px; border:1px solid var(--line); box-shadow:0 18px 50px rgba(2,6,23,.30); padding:18px; }
@@ -64,10 +77,9 @@
 
 <script>
   let currentData = null;
-let rutBuscadoActual = null;
-  const $ = (id) => document.getElementById(id);
+  let rutBuscadoActual = null;
 
-  let lastBuscar = null;
+  const $ = (id) => document.getElementById(id);
 
   function showModal(title, text){
     $("modalTitle").textContent = title;
@@ -78,6 +90,13 @@ let rutBuscadoActual = null;
 
   $("modalClose").onclick = hideModal;
   $("modalBackdrop").addEventListener("click", (e)=>{ if(e.target.id==="modalBackdrop") hideModal(); });
+
+  function estadoLabel(status){
+    if(status === "YA_ENTREGADO") return "YA_ENTREGADO";
+    if(status === "PENDIENTE") return "PENDIENTE";
+    if(status === "NO_CORRESPONDE") return "NO_CORRESPONDE";
+    return status || "-";
+  }
 
   function renderBuscar(data){
     const out = $("out");
@@ -92,44 +111,71 @@ let rutBuscadoActual = null;
       return;
     }
 
+    const packsAEntregar = Number(data.packs_a_entregar || 0);
+    const sinPack = Number(data.sin_pack || 0);
+
+    // Banner contextual
+    let bannerExtra = "";
+    if (data.status === "NO_CORRESPONDE") {
+      bannerExtra = `<div class="msg err" style="margin-top:12px;">
+        Este grupo <b>no tiene welcome pack</b>.
+      </div>`;
+    } else if (data.status === "YA_ENTREGADO") {
+      bannerExtra = `<div class="msg ok" style="margin-top:12px;">
+        <b>Welcome packs ya entregados a este grupo.</b>
+      </div>`;
+    }
+
     const encabezado = `
       <div class="msg">
-        <div><b>Estado:</b> ${data.status} · <b>RUT buscado:</b> ${data.buscado?.rut || ""} · <b>Nombre:</b> ${data.buscado?.nombre || ""}</div>
+        <div><b>Estado:</b> ${estadoLabel(data.status)} · <b>RUT buscado:</b> ${data.buscado?.rut || ""} · <b>Nombre:</b> ${data.buscado?.nombre || ""}</div>
         <div class="sub">
           <b>Comprador:</b> ${data.comprador?.nombre || ""} (${data.comprador?.rut || ""})
-          · <b>Resumen packs:</b> ${(data.resumen || []).join(" · ")}
+          · <b>Packs a entregar:</b> ${packsAEntregar} · <b>Sin pack:</b> ${sinPack}
+          ${data.resumen?.length ? ` · <b>Resumen packs:</b> ${(data.resumen || []).join(" · ")}` : ""}
         </div>
       </div>
     `;
+
     const tabla = `
       <table>
         <thead>
-          <tr><th>Rut</th><th>Nombre</th><th>Categoría</th><th>Tribuna</th><th>Sector</th></tr>
+          <tr>
+            <th>Rut</th>
+            <th>Nombre</th>
+            <th>Categoría</th>
+            <th>Ubicación</th>
+            <th>Fila</th>
+            <th>Asiento</th>
+            <th>Pack</th>
+          </tr>
         </thead>
         <tbody>
-          ${(data.miembros || []).map(m => `
-            <tr>
-              <td>${m.rut || ""}</td>
-              <td>${m.nombre || ""}</td>
-              <td>${m.categoria || ""}</td>
-              <td>${m.tribuna || ""}</td>
-              <td>${m.sector || ""}</td>
-            </tr>
-          `).join("")}
+          ${(data.miembros || []).map(m => {
+            const corresponde = !!m.pack_corresponde;
+            const pill = corresponde
+              ? `<span class="pill ok">✅ ${m.pack || "SI"}</span>`
+              : `<span class="pill no">❌ NO</span>`;
+            const trClass = corresponde ? "" : "dim";
+            return `
+              <tr class="${trClass}">
+                <td>${m.rut || ""}</td>
+                <td>${m.nombre || ""}</td>
+                <td>${m.categoria || ""}</td>
+                <td>${m.ubicacion || ""}</td>
+                <td>${m.fila || ""}</td>
+                <td>${m.asiento || ""}</td>
+                <td>${pill}</td>
+              </tr>
+            `;
+          }).join("")}
         </tbody>
       </table>
     `;
 
-    let entregaInfo = "";
-    if (data.status === "YA_ENTREGADO" && data.entrega) {
-      entregaInfo = `<div class="msg ok" style="margin-top:12px;">
-        <b>Ya entregado</b> · ${data.entrega.fecha_iso || ""}<br/>
-        <b>Receptor:</b> ${data.entrega.nombre_receptor || ""} (${data.entrega.rut_receptor || ""})
-      </div>`;
-    }
-
+    // Form sólo si hay packs y está PENDIENTE
     let form = "";
-    if (data.status === "PENDIENTE") {
+    if (data.status === "PENDIENTE" && packsAEntregar > 0) {
       form = `
         <div class="sectionTitle">Datos del receptor</div>
         <div class="formRow">
@@ -140,89 +186,108 @@ let rutBuscadoActual = null;
       `;
     }
 
-    out.innerHTML = encabezado + tabla + entregaInfo + form;
+    out.innerHTML = encabezado + tabla + bannerExtra + form;
 
-    if (data.status === "PENDIENTE") {
+    if (data.status === "PENDIENTE" && packsAEntregar > 0) {
       $("btnGuardar").onclick = guardarEntrega;
     }
   }
 
-async function buscar(){
-  const rut = $("rutInput").value.trim();
-  if (!rut) return;
+  async function buscar(){
+    const rut = $("rutInput").value.trim();
+    if (!rut) return;
 
-  // ✅ Guarda el RUT buscado para usarlo en "guardarEntrega"
-  rutBuscadoActual = rut;
+    rutBuscadoActual = rut;
 
-  $("out").innerHTML = `<div class="msg">Buscando...</div>`;
-  try{
-    const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
-    const data = await res.json();
+    $("out").innerHTML = `<div class="msg">Buscando...</div>`;
+    $("btnBuscar").disabled = true;
 
-    // ✅ Guarda la última data para usarla después (ej: validaciones, UI, etc.)
-    currentData = data;
-    lastBuscar = data;
-
-    renderBuscar(data);
-  }catch(e){
-    $("out").innerHTML = `<div class="msg err">Error al cargar: ${e?.message || e}</div>`;
-  }
-}
-
-async function guardarEntrega(){
-  const rut_receptor = $("rutReceptor").value.trim();
-  const nombre_receptor = $("nombreReceptor").value.trim();
-
-  if (!rut_receptor || !nombre_receptor) {
-    showModal("Faltan datos", "Completa RUT receptor y Nombre receptor.");
-    return;
+    try{
+      const res = await fetch(`/.netlify/functions/buscar?rut=${encodeURIComponent(rut)}`);
+      const data = await res.json();
+      currentData = data;
+      renderBuscar(data);
+    }catch(e){
+      $("out").innerHTML = `<div class="msg err">Error al cargar: ${e?.message || e}</div>`;
+    }finally{
+      $("btnBuscar").disabled = false;
+    }
   }
 
-  const rut_buscado =
-    (currentData?.buscado?.rut) ||
-    (lastBuscar?.buscado?.rut) ||
-    rutBuscadoActual ||
-    $("rutInput").value.trim();
+  async function guardarEntrega(){
+    if (!currentData) {
+      showModal("Error", "Primero busca un RUT.");
+      return;
+    }
 
-  if (!rut_buscado) {
-    showModal("Error", "Falta rut_buscado");
-    return;
-  }
+    const rut_receptor = $("rutReceptor").value.trim();
+    const nombre_receptor = $("nombreReceptor").value.trim();
 
-  try{
-    const res = await fetch(`/.netlify/functions/entregar`, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({
-        rut_buscado,
-        rut_receptor,
-        nombre_receptor
-      })
-    });
+    if (!rut_receptor || !nombre_receptor) {
+      showModal("Faltan datos", "Completa RUT receptor y Nombre receptor.");
+      return;
+    }
 
-    const data = await res.json();
+    const rut_buscado =
+      (currentData?.buscado?.rut) ||
+      rutBuscadoActual ||
+      $("rutInput").value.trim();
 
-    if (!res.ok || data?.status === "ERROR") {
-      // Si tu backend responde YA_ENTREGADO con 409 o 400, lo mostramos bien
+    if (!rut_buscado) {
+      showModal("Error", "Falta rut_buscado");
+      return;
+    }
+
+    // Bloqueos de seguridad UI
+    const packsAEntregar = Number(currentData?.packs_a_entregar || 0);
+    if (currentData.status === "NO_CORRESPONDE" || packsAEntregar === 0) {
+      showModal("No corresponde", "Este grupo no tiene welcome pack.");
+      return;
+    }
+    if (currentData.status === "YA_ENTREGADO") {
+      showModal("Ya entregado", "Welcome packs ya entregados a este grupo.");
+      return;
+    }
+
+    const btn = $("btnGuardar");
+    btn.disabled = true;
+
+    try{
+      const res = await fetch(`/.netlify/functions/entregar`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ rut_buscado, rut_receptor, nombre_receptor })
+      });
+
+      const data = await res.json();
+
       if (data?.status === "YA_ENTREGADO") {
         showModal("Ya entregado", "Este grupo ya registra entrega.");
         await buscar();
         return;
       }
-      showModal("Error", data?.error || "No se pudo guardar la entrega.");
-      return;
+      if (data?.status === "NO_CORRESPONDE") {
+        showModal("No corresponde", "Este grupo no tiene welcome pack.");
+        await buscar();
+        return;
+      }
+      if (!res.ok || data?.status === "ERROR") {
+        showModal("Error", data?.error || "No se pudo guardar la entrega.");
+        return;
+      }
+
+      showModal("Listo", `Entrega guardada correctamente. (${data.filas_escritas || 0} pack(s))`);
+      await buscar();
+
+    }catch(e){
+      showModal("Error", e?.message || String(e));
+    }finally{
+      btn.disabled = false;
     }
-
-    showModal("Listo", "Entrega guardada correctamente.");
-    await buscar();
-
-  }catch(e){
-    showModal("Error", e?.message || String(e));
   }
-}
 
-$("btnBuscar").onclick = buscar;
-$("rutInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") buscar(); });
+  $("btnBuscar").onclick = buscar;
+  $("rutInput").addEventListener("keydown", (e)=>{ if(e.key==="Enter") buscar(); });
 </script>
 </body>
 </html>
