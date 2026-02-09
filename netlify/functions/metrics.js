@@ -172,14 +172,16 @@ exports.handler = async (event) => {
     const totalEntregados = packsBase.reduce((acc, p) => acc + (p.rut && entregadosSet.has(p.rut) ? 1 : 0), 0);
     const pctTotal = totalBase ? (totalEntregados / totalBase) : 0;
 
-    // 3) Por categoría
-    const catAgg = {};
-    for (const p of packsBase) {
-      const c = (p.categoria || "SIN_CATEGORIA").trim().toUpperCase();
-      catAgg[c] ||= { base: 0, entregados: 0 };
-      catAgg[c].base++;
-      if (p.rut && entregadosSet.has(p.rut)) catAgg[c].entregados++;
-    }
+    // 3) Por “categoría de pack” (PREMIUM vs PREMIUM SEAT)
+const catAgg = {};
+for (const p of packsBase) {
+  // Si el pack es PREMIUM SEAT lo separamos; si no, cae en PREMIUM
+  const packKey = normPack(p.pack) === "PREMIUM SEAT" ? "PREMIUM SEAT" : "PREMIUM";
+
+  catAgg[packKey] ||= { base: 0, entregados: 0 };
+  catAgg[packKey].base++;
+  if (entregadosSet.has(p.rut)) catAgg[packKey].entregados++;
+}
 
     const porCategoria = Object.entries(catAgg)
       .map(([categoria, v]) => ({
